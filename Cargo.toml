@@ -1,0 +1,6 @@
+[package]
+name = "mincoin"
+version = "0.1.0"
+authors = ["matken11235 <26405363+matken11235@users.noreply.github.com>"]
+
+[dependencies]
