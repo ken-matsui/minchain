@@ -2,10 +2,9 @@ use std::io::{Read, Write};
 use std::{thread, time};
 use std::str::from_utf8;
 use std::net::{TcpListener, TcpStream, SocketAddr};
-
-use ::message_manager::{MessageManager, MsgType};
-use ::core_node_list::CoreNodeList;
 use std::collections::HashSet;
+use p2p::message_manager::{MessageManager, MsgType};
+use p2p::core_node_list::CoreNodeList;
 
 const PING_INTERVAL: time::Duration = time::Duration::from_secs(30);
 

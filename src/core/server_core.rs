@@ -1,5 +1,5 @@
 use std::net::{SocketAddr, IpAddr, Ipv4Addr, ToSocketAddrs};
-use ::connection_manager::ConnectionManager;
+use p2p::connection_manager::ConnectionManager;
 
 #[derive(Clone)]
 pub enum State {

@@ -1,15 +1,12 @@
 extern crate ctrlc;
-extern crate serde;
 
-mod connection_manager;
-mod core_node_list;
-mod message_manager;
-mod server_core;
+mod core;
+mod p2p;
 
 use std::env;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use server_core::{ServerCore, Overload};
+use core::server_core::{ServerCore, Overload};
 
 fn wait_for_ctlc() {
     let running = Arc::new(AtomicBool::new(true));
