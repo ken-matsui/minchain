@@ -1,52 +1,36 @@
-use std::net::TcpListener;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::thread;
-use std::io::{Read, Write};
-use std::io;
-use std::str::from_utf8;
+extern crate ctrlc;
 
-fn handle_message(msg: &[u8]) {
-    println!("{}", from_utf8(&msg.to_vec()).unwrap());
-}
+mod connection_manager;
+mod core_node_list;
+mod message_manager;
+mod server_core;
 
-fn server_start() -> io::Result<()> {
-    let localhost = Ipv4Addr::new(127, 0, 0, 1);
-    let port: u16 = 50030;
+use std::env;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use server_core::{ServerCore, Overload};
 
-    println!("My IP address is now ... {}", localhost);
-    let listener = TcpListener::bind(SocketAddr::new(IpAddr::V4(localhost), port))?;
-
-    loop {
-        println!("Waiting for the connection ...");
-        match listener.accept() {
-            Ok((mut stream, addr)) => {
-                println!("Connected by ... {}", addr);
-                let _ = thread::spawn(
-                    move || -> io::Result<()> {
-                        loop {
-                            let mut b = [0; 1024];
-                            let n = stream.read(&mut b)?;
-                            if n == 0 {
-                                return Ok(());
-                            } else {
-                                handle_message(&b[0..n]);
-                                // stream.write(&b[0..n])?;Z
-                            }
-                        }
-                    }
-                );
-            },
-            Err(e) => {
-                println!("An error occurred while accepting a connection: {}", e);
-                continue;
-            }
-        };
-    }
+fn wait_for_ctlc() {
+    let running = Arc::new(AtomicBool::new(true));
+    let r = running.clone();
+    ctrlc::set_handler(move || {
+        r.store(false, Ordering::SeqCst);
+    }).expect("Error setting Ctrl-C handler");
+    while running.load(Ordering::SeqCst) {}
+    println!("Interrupted by user. Exiting ...");
 }
 
 fn main() {
-    match server_start() {
-        Ok(_) => (),
-        Err(e) => println!("{:?}", e),
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() > 1 && "genesis" == &args[1] {
+        let mut my_p2p_server = ServerCore::new(50082);
+        my_p2p_server.start();
+        wait_for_ctlc();
+    } else {
+        let mut my_p2p_server = ServerCore::new((50090, "localhost:50082".to_string()));
+        my_p2p_server.start();
+        my_p2p_server.join_network();
+        wait_for_ctlc();
     }
 }
