@@ -62,20 +62,27 @@ impl ConnectionManager {
     }
 
     pub fn send_msg(&mut self, peer: &SocketAddr, msg: String) {
-        let mut stream = TcpStream::connect(peer).unwrap();
-        thread::spawn(move || {
-            stream.write(msg.as_bytes()).unwrap();
-        });
+        match TcpStream::connect(peer) {
+            Ok(mut stream) => {
+                thread::spawn(move || {
+                    stream.write(msg.as_bytes()).unwrap();
+                });
+            },
+            Err(_) => {
+                println!("Connection failed for peer : {}", *peer);
+                self.remove_peer(peer);
+            },
+        }
     }
 
     pub fn send_msg_to_all_peer(&mut self, msg: String) {
-         println!("send_msg_to_all_peer was called!");
-         for peer in self.core_node_set.list.clone() {
-             if peer != self.addr {
-                 println!("message will be sent to ... {}", peer);
-             };
-             self.send_msg(&peer, msg.clone());
-         }
+        println!("send_msg_to_all_peer was called!");
+        for peer in self.core_node_set.list.clone() {
+            if peer != self.addr {
+                println!("message will be sent to ... ({})", peer);
+            };
+            self.send_msg(&peer, msg.clone());
+        }
     }
 
     /// Add a core node to the list.
@@ -92,9 +99,9 @@ impl ConnectionManager {
         let listener = TcpListener::bind(self.addr).unwrap();
         loop {
             println!("Waiting for the connection ...");
-            match listener.accept() {
+            match listener.accept() { // TODO: listener.incoming
                 Ok((mut stream, addr)) => {
-                    println!("Connected by .. {}", addr);
+                    println!("Connected by .. ({})", addr);
                     let mut self_clone = self.clone();
                     thread::spawn(move || {
                         let mut b = [0; 1024];
@@ -116,7 +123,7 @@ impl ConnectionManager {
         self.mm.build(MsgType::CoreList, self.addr.port(), Some(vec))
     }
 
-    fn handle_message(&mut self, addr: &SocketAddr, data: &String) {
+    fn handle_message(&mut self, peer_addr: &SocketAddr, data: &String) {
         match self.mm.parse(data) {
             Ok((msg_type, payload)) => {
                 match payload {
@@ -124,15 +131,15 @@ impl ConnectionManager {
                         match msg_type {
                             MsgType::Add => {
                                 println!("ADD node request was received!!");
-                                self.add_peer(addr);
-                                if self.addr != *addr {
+                                self.add_peer(peer_addr);
+                                if self.addr != *peer_addr {
                                     let msg = self.build_message();
                                     self.send_msg_to_all_peer(msg);
                                 };
                             },
                             MsgType::Remove => {
-                                println!("REMOVE request was received!! from {}", addr);
-                                self.remove_peer(addr);
+                                println!("REMOVE request was received!! from: ({})", peer_addr);
+                                self.remove_peer(peer_addr);
                                 let msg = self.build_message();
                                 self.send_msg_to_all_peer(msg);
                             },
@@ -140,7 +147,7 @@ impl ConnectionManager {
                             MsgType::RequestCoreList => {
                                 println!("List for Core nodes was requested!!");
                                 let msg = self.build_message();
-                                self.send_msg(addr, msg);
+                                self.send_msg(peer_addr, msg);
                             },
                             unknown => {
                                 println!("received unknown command: {:?}", unknown);

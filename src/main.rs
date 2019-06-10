@@ -1,4 +1,5 @@
 extern crate ctrlc;
+extern crate serde;
 
 mod connection_manager;
 mod core_node_list;
@@ -27,8 +28,13 @@ fn main() {
         let mut my_p2p_server = ServerCore::new(50082);
         my_p2p_server.start();
         wait_for_ctlc();
-    } else {
+    } else if args.len() > 1 && "node" == &args[1] {
         let mut my_p2p_server = ServerCore::new((50090, "localhost:50082".to_string()));
+        my_p2p_server.start();
+        my_p2p_server.join_network();
+        wait_for_ctlc();
+    } else {
+        let mut my_p2p_server = ServerCore::new((50091, "localhost:50082".to_string()));
         my_p2p_server.start();
         my_p2p_server.join_network();
         wait_for_ctlc();

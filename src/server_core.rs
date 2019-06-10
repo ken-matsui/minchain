@@ -43,7 +43,6 @@ impl Overload<(u16, String)> for ServerCore {
         let my_ip = get_my_ip();
         println!("Server IP address is set to ... {}", my_ip);
         let my_addr = SocketAddr::new(IpAddr::V4(my_ip), my_port);
-        println!("Hogeeeeee ... {}", my_addr);
 
         ServerCore{
             server_state: State::Init,
