@@ -96,22 +96,22 @@ impl ConnectionManager {
 
     fn wait_for_access(&self) {
         let listener = TcpListener::bind(self.addr).unwrap();
-        loop {
-            println!("Waiting for the connection ...");
-            match listener.accept() { // TODO: listener.incoming
-                Ok((mut stream, addr)) => {
-                    println!("Connected by .. ({})", addr);
+        for stream in listener.incoming() {
+            match stream {
+                Ok(mut stream) => {
+                    let peer_addr = stream.peer_addr().unwrap();
+                    println!("Connected by .. ({})", peer_addr);
                     let mut self_clone = self.clone();
                     thread::spawn(move || {
                         let mut b = [0; 1024];
                         let n = stream.read(&mut b).unwrap();
-                        self_clone.handle_message(&addr, &u8_to_str(&b[0..n]));
+                        self_clone.handle_message(&peer_addr, &u8_to_str(&b[0..n]));
                     });
                 },
                 Err(e) => {
                     println!("An error occurred while accepting a connection: {}", e);
                     continue;
-                }
+                },
             };
         }
     }
