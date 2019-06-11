@@ -22,9 +22,9 @@ pub trait Overload<T> {
 impl Overload<u16> for ServerCore {
     fn new(my_port: u16) -> ServerCore {
         println!("Initializing server ...");
-        let my_ip = get_my_ip();
-        println!("Server IP address is set to ... {}", my_ip);
-        let my_addr = SocketAddr::new(IpAddr::V4(my_ip), my_port);
+        const MY_IP: Ipv4Addr = get_my_ip();
+        println!("Server IP address is set to ... {}", MY_IP);
+        let my_addr = SocketAddr::new(IpAddr::V4(MY_IP), my_port);
 
         ServerCore {
             server_state: State::Init,
@@ -40,9 +40,9 @@ impl Overload<(u16, String)> for ServerCore {
         let node_addr = args.1.to_socket_addrs().unwrap().next().unwrap();
 
         println!("Initializing server ...");
-        let my_ip = get_my_ip();
-        println!("Server IP address is set to ... {}", my_ip);
-        let my_addr = SocketAddr::new(IpAddr::V4(my_ip), my_port);
+        const MY_IP: Ipv4Addr = get_my_ip();
+        println!("Server IP address is set to ... {}", MY_IP);
+        let my_addr = SocketAddr::new(IpAddr::V4(MY_IP), my_port);
 
         ServerCore{
             server_state: State::Init,
@@ -80,6 +80,6 @@ impl Drop for ServerCore {
     }
 }
 
-fn get_my_ip() -> Ipv4Addr {
+const fn get_my_ip() -> Ipv4Addr {
     Ipv4Addr::LOCALHOST
 }

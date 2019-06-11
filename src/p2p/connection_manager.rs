@@ -1,18 +1,19 @@
 use std::io::{Read, Write};
 use std::{thread, time};
+use std::sync::{Arc, Mutex};
 use std::str::from_utf8;
 use std::net::{TcpListener, TcpStream, SocketAddr};
 use std::collections::HashSet;
 use p2p::message_manager::{MessageManager, MsgType};
 use p2p::core_node_list::CoreNodeList;
 
-const PING_INTERVAL: time::Duration = time::Duration::from_secs(30);
+const PING_INTERVAL: time::Duration = time::Duration::from_secs(10);
 
 #[derive(Clone)]
 pub struct ConnectionManager {
     addr: SocketAddr,
     my_c_addr: Option<SocketAddr>,
-    core_node_set: CoreNodeList,
+    core_node_set: Arc<Mutex<CoreNodeList>>,
     mm: MessageManager,
 }
 
@@ -24,21 +25,22 @@ impl ConnectionManager {
         ConnectionManager {
             addr,
             my_c_addr: None,
-            core_node_set: core_node_list,
+            core_node_set: Arc::new(Mutex::new(core_node_list)),
             mm: MessageManager::new(),
         }
     }
 
     /// Start standby. (for ServerCore)
     pub fn start(&mut self) {
+        let self_clone = self.clone();
         { // Reference: https://stackoverflow.com/a/33455247
-            let self_clone = self.clone();
+            let self_clone = self_clone.clone();
             thread::spawn(move || {
                 self_clone.wait_for_access();
             });
         }
         {
-            let mut self_clone = self.clone();
+            let mut self_clone = self_clone.clone();
             thread::spawn(move || {
                 thread::sleep(PING_INTERVAL);
                 self_clone.check_peers_connection();
@@ -54,7 +56,7 @@ impl ConnectionManager {
 
     fn connect_to_p2pnw(&self, node_addr: SocketAddr) {
         let mut stream = TcpStream::connect(node_addr).unwrap();
-        let msg = self.mm.build(MsgType::Add, self.addr.port(), None);
+        let msg = self.mm.build(MsgType::Add, self.addr, None);
         thread::spawn(move || {
             stream.write(msg.as_bytes()).unwrap();
         });
@@ -68,7 +70,7 @@ impl ConnectionManager {
                 });
             },
             Err(_) => {
-                println!("Connection failed for peer : {}", *peer);
+                eprintln!("Connection failed for peer : {}", *peer);
                 self.remove_peer(peer);
             },
         }
@@ -76,7 +78,8 @@ impl ConnectionManager {
 
     pub fn send_msg_to_all_peer(&mut self, msg: String) {
         println!("send_msg_to_all_peer was called!");
-        for peer in self.core_node_set.list.clone() {
+        let list = self.core_node_set.lock().unwrap().list.clone();
+        for peer in list {
             if peer != self.addr {
                 println!("message will be sent to ... ({})", peer);
             };
@@ -86,30 +89,29 @@ impl ConnectionManager {
 
     /// Add a core node to the list.
     fn add_peer(&mut self, peer: &SocketAddr) {
-        self.core_node_set.add(*peer);
+        self.core_node_set.lock().unwrap().add(*peer);
     }
 
     /// Remove a core node that has left from the list.
     fn remove_peer(&mut self, peer: &SocketAddr) {
-        self.core_node_set.remove(peer);
+        self.core_node_set.lock().unwrap().remove(peer);
     }
 
+    /// Always listen during server startup.
     fn wait_for_access(&self) {
         let listener = TcpListener::bind(self.addr).unwrap();
         for stream in listener.incoming() {
             match stream {
                 Ok(mut stream) => {
-                    let peer_addr = stream.peer_addr().unwrap();
-                    println!("Connected by .. ({})", peer_addr);
                     let mut self_clone = self.clone();
                     thread::spawn(move || {
                         let mut b = [0; 1024];
                         let n = stream.read(&mut b).unwrap();
-                        self_clone.handle_message(&peer_addr, &u8_to_str(&b[0..n]));
+                        self_clone.handle_message(&u8_to_str(&b[0..n]));
                     });
                 },
                 Err(e) => {
-                    println!("An error occurred while accepting a connection: {}", e);
+                    eprintln!("An error occurred while accepting a connection: {}", e);
                     continue;
                 },
             };
@@ -118,35 +120,36 @@ impl ConnectionManager {
 
     fn build_message(&self) -> String {
         let mut vec = Vec::new();
-        vec.extend(self.core_node_set.list.clone().into_iter());
-        self.mm.build(MsgType::CoreList, self.addr.port(), Some(vec))
+        vec.extend(self.core_node_set.lock().unwrap().list.clone().into_iter());
+        self.mm.build(MsgType::CoreList, self.addr, Some(vec))
     }
 
-    fn handle_message(&mut self, peer_addr: &SocketAddr, data: &String) {
+    fn handle_message(&mut self, data: &String) {
         match self.mm.parse(data) {
-            Ok((msg_type, payload)) => {
-                match payload {
+            Ok(msg) => {
+                println!("Connected by .. ({})", msg.my_addr);
+                match msg.payload {
                     None => {
-                        match msg_type {
+                        match msg.msg_type {
                             MsgType::Add => {
                                 println!("ADD node request was received!!");
-                                self.add_peer(peer_addr);
-                                if self.addr != *peer_addr {
+                                self.add_peer(&msg.my_addr);
+                                if self.addr != msg.my_addr {
                                     let msg = self.build_message();
                                     self.send_msg_to_all_peer(msg);
                                 };
                             },
                             MsgType::Remove => {
-                                println!("REMOVE request was received!! from: ({})", peer_addr);
-                                self.remove_peer(peer_addr);
+                                println!("REMOVE request was received!! from: ({})", msg.my_addr);
+                                self.remove_peer(&msg.my_addr);
                                 let msg = self.build_message();
                                 self.send_msg_to_all_peer(msg);
                             },
                             MsgType::Ping => {},
                             MsgType::RequestCoreList => {
                                 println!("List for Core nodes was requested!!");
-                                let msg = self.build_message();
-                                self.send_msg(peer_addr, msg);
+                                let send_msg = self.build_message();
+                                self.send_msg(&msg.my_addr, send_msg);
                             },
                             unknown => {
                                 println!("received unknown command: {:?}", unknown);
@@ -154,7 +157,7 @@ impl ConnectionManager {
                         };
                     },
                     Some(mut pl) => {
-                        match msg_type {
+                        match msg.msg_type {
                             MsgType::CoreList => {
                                 // TODO: 受信したリストをただ上書きしてしまうのは
                                 // 本来セキュリティ的にはよろしくない。
@@ -163,7 +166,7 @@ impl ConnectionManager {
                                 let mut new_core_set = CoreNodeList::new();
                                 new_core_set.list = pl.drain(..).collect();
                                 println!("latest core node list: {}", new_core_set);
-                                self.core_node_set = new_core_set;
+                                self.core_node_set.lock().unwrap().list = new_core_set.list;
                             },
                             unknown => {
                                 eprintln!("received unknown command: {:?}", unknown);
@@ -172,14 +175,17 @@ impl ConnectionManager {
                     },
                 };
             },
-            Err(e) => eprintln!("{}", e),
+            Err(e) => eprintln!("Error: {}", e),
         };
     }
 
-    /// 接続されている全てのCoreノードを生存確認する 30秒毎
+    /// Check all connected core nodes every PING_INTERVAL for survival.
     fn check_peers_connection(&mut self) {
         let dead_c_node_set: HashSet<SocketAddr> =
-            self.core_node_set.list
+            self.core_node_set
+                .lock()
+                .unwrap()
+                .list
                 .iter()
                 .cloned()
                 .filter(|x| !self.is_alive(x))
@@ -187,14 +193,14 @@ impl ConnectionManager {
 
         if dead_c_node_set.len() > 0 {
             println!("Removing: {:?}", dead_c_node_set);
-            self.core_node_set.list = &self.core_node_set.list - &dead_c_node_set;
-            println!("current core node list: {}", self.core_node_set);
+            self.core_node_set.lock().unwrap().list = &self.core_node_set.lock().unwrap().list - &dead_c_node_set;
+            println!("current core node list: {}", self.core_node_set.lock().unwrap());
 
-            // ブロードキャストで通知する
+            // Notify with broadcast
             let msg = self.build_message();
             self.send_msg_to_all_peer(msg);
         } else {
-            println!("current core node list: {}", self.core_node_set);
+            println!("current core node list: {}", self.core_node_set.lock().unwrap());
         };
 
         let mut self_clone = self.clone();
@@ -206,13 +212,17 @@ impl ConnectionManager {
 
     /// Send a message to confirm valid nodes.
     fn is_alive(&self, target: &SocketAddr) -> bool {
-        let mut stream = TcpStream::connect(target).unwrap();
-        let msg = self.mm.build(MsgType::Ping, 50082, None);
-        let result = thread::spawn(move || {
-            stream.write(msg.as_bytes())
-        });
-        match result.join() {
-            Ok(_) => true,
+        match TcpStream::connect(target) {
+            Ok(mut stream) => {
+                let msg = self.mm.build(MsgType::Ping, self.addr, None);
+                let result = thread::spawn(move || {
+                    stream.write(msg.as_bytes())
+                });
+                match result.join() {
+                    Ok(_) => true,
+                    Err(_) => false,
+                }
+            },
             Err(_) => false,
         }
     }
@@ -226,7 +236,7 @@ impl Drop for ConnectionManager {
         match self.my_c_addr {
             None => {},
             Some(my_c_addr) => {
-                let msg = self.mm.build(MsgType::Remove, self.addr.port(), None);
+                let msg = self.mm.build(MsgType::Remove, self.addr, None);
                 self.send_msg(&my_c_addr, msg);
             },
         };

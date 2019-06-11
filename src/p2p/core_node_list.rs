@@ -25,7 +25,7 @@ impl CoreNodeList {
             self.list.remove(peer);
             println!("Current Core list: {:?}", self.list);
         };
-    }
+    } // TODO: 上手くremoveされないバグ有り
 
     /// Overwrite in bulk after checking the connection status of multiple peers.
     pub fn overwrite(&mut self, new_list: HashSet<SocketAddr>) {

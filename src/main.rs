@@ -31,7 +31,7 @@ fn main() {
         my_p2p_server.join_network();
         wait_for_ctlc();
     } else {
-        let mut my_p2p_server = ServerCore::new((50091, "localhost:50082".to_string()));
+        let mut my_p2p_server = ServerCore::new((50091, "localhost:50090".to_string()));
         my_p2p_server.start();
         my_p2p_server.join_network();
         wait_for_ctlc();
