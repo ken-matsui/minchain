@@ -8,7 +8,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(my_port: u16, core_addr: String) -> Client {
+    pub fn new(my_port: u16, core_addr: &'static str) -> Client {
         println!("Initializing ClientCore ...");
         const MY_IP: Ipv4Addr = get_my_ip();
         println!("Server IP address is set to ... {}", MY_IP);

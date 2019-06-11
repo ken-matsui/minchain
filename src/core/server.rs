@@ -35,8 +35,8 @@ impl Overload<u16> for Server {
     }
 }
 
-impl Overload<(u16, String)> for Server {
-    fn new(args: (u16, String)) -> Server {
+impl Overload<(u16, &'static str)> for Server {
+    fn new(args: (u16, &'static str)) -> Server {
         let my_port = args.0;
         let node_addr = args.1.to_socket_addrs().unwrap().next().unwrap();
 

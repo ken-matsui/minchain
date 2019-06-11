@@ -31,13 +31,13 @@ fn main() {
             my_p2p_server.start();
             wait_for_ctlc();
         } else {
-            let mut my_p2p_server = Server::new((50090, "localhost:50082".to_string()));
+            let mut my_p2p_server = Server::new((50090, "localhost:50082"));
             my_p2p_server.start();
             my_p2p_server.join_network();
             wait_for_ctlc();
         };
     } else if &args[1] == "client" {
-        let mut my_p2p_client = Client::new(50095, "localhost:50082".to_string());
+        let mut my_p2p_client = Client::new(50095, "localhost:50082");
         my_p2p_client.start();
         wait_for_ctlc();
     } else {
