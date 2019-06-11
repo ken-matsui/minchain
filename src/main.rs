@@ -6,7 +6,7 @@ mod p2p;
 use std::env;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use core::server_core::{ServerCore, Overload};
+use core::server::{Server, Overload};
 use core::client_core::ClientCore;
 
 fn wait_for_ctlc() {
@@ -27,11 +27,11 @@ fn main() {
         eprintln!("cargo run server (genesis)");
     } else if &args[1] == "server" {
         if args.len() > 2 && &args[2] == "genesis" {
-            let mut my_p2p_server = ServerCore::new(50082);
+            let mut my_p2p_server = Server::new(50082);
             my_p2p_server.start();
             wait_for_ctlc();
         } else {
-            let mut my_p2p_server = ServerCore::new((50090, "localhost:50082".to_string()));
+            let mut my_p2p_server = Server::new((50090, "localhost:50082".to_string()));
             my_p2p_server.start();
             my_p2p_server.join_network();
             wait_for_ctlc();

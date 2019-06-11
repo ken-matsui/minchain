@@ -1,5 +1,5 @@
 use std::net::{SocketAddr, IpAddr, Ipv4Addr, ToSocketAddrs};
-use super::server_core::{State, get_my_ip};
+use super::server::{State, get_my_ip};
 use p2p::connection_manager_4edge::ConnectionManager4Edge;
 
 pub struct ClientCore {

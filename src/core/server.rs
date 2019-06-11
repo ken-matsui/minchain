@@ -10,24 +10,24 @@ pub enum State {
     ShuttingDown,
 }
 
-pub struct ServerCore {
+pub struct Server {
     server_state: State,
     cm: ConnectionManager,
     core_node_addr: Option<SocketAddr>,
 }
 
 pub trait Overload<T> {
-    fn new(_: T) -> ServerCore;
+    fn new(_: T) -> Server;
 }
 
-impl Overload<u16> for ServerCore {
-    fn new(my_port: u16) -> ServerCore {
+impl Overload<u16> for Server {
+    fn new(my_port: u16) -> Server {
         println!("Initializing server ...");
         const MY_IP: Ipv4Addr = get_my_ip();
         println!("Server IP address is set to ... {}", MY_IP);
         let my_addr = SocketAddr::new(IpAddr::V4(MY_IP), my_port);
 
-        ServerCore {
+        Server {
             server_state: State::Init,
             cm: ConnectionManager::new(my_addr),
             core_node_addr: None,
@@ -35,8 +35,8 @@ impl Overload<u16> for ServerCore {
     }
 }
 
-impl Overload<(u16, String)> for ServerCore {
-    fn new(args: (u16, String)) -> ServerCore {
+impl Overload<(u16, String)> for Server {
+    fn new(args: (u16, String)) -> Server {
         let my_port = args.0;
         let node_addr = args.1.to_socket_addrs().unwrap().next().unwrap();
 
@@ -45,7 +45,7 @@ impl Overload<(u16, String)> for ServerCore {
         println!("Server IP address is set to ... {}", MY_IP);
         let my_addr = SocketAddr::new(IpAddr::V4(MY_IP), my_port);
 
-        ServerCore{
+        Server {
             server_state: State::Init,
             cm: ConnectionManager::new(my_addr),
             core_node_addr: Some(node_addr),
@@ -53,7 +53,7 @@ impl Overload<(u16, String)> for ServerCore {
     }
 }
 
-impl ServerCore {
+impl Server {
     pub fn start(&mut self) {
         self.server_state = State::Standby;
         self.cm.start();
@@ -75,7 +75,7 @@ impl ServerCore {
     }
 }
 
-impl Drop for ServerCore {
+impl Drop for Server {
     fn drop(&mut self) -> () { // shutdown_server
         self.server_state = State::ShuttingDown;
         println!("Shutdown server ...");
