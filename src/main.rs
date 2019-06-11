@@ -7,7 +7,7 @@ use std::env;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use core::server::{Server, Overload};
-use core::client_core::ClientCore;
+use core::client::Client;
 
 fn wait_for_ctlc() {
     let running = Arc::new(AtomicBool::new(true));
@@ -37,7 +37,7 @@ fn main() {
             wait_for_ctlc();
         };
     } else if &args[1] == "client" {
-        let mut my_p2p_client = ClientCore::new(50095, "localhost:50082".to_string());
+        let mut my_p2p_client = Client::new(50095, "localhost:50082".to_string());
         my_p2p_client.start();
         wait_for_ctlc();
     } else {

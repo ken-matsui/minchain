@@ -1,2 +1,2 @@
-pub mod client_core;
+pub mod client;
 pub mod server;
