@@ -3,6 +3,7 @@ use std::{thread, time};
 use std::sync::{Arc, Mutex};
 use std::str::from_utf8;
 use std::net::{TcpListener, TcpStream, SocketAddr};
+
 use p2p::message_manager::{MessageManager, MsgType};
 use p2p::core_node_list::CoreNodeList;
 use p2p::edge_node_list::EdgeNodeList;

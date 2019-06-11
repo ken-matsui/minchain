@@ -4,6 +4,7 @@ use std::time::Duration;
 use std::sync::{Arc, Mutex};
 use std::str::from_utf8;
 use std::net::{TcpListener, TcpStream, SocketAddr};
+
 use p2p::message_manager::{MessageManager, MsgType};
 use p2p::core_node_list::CoreNodeList;
 
