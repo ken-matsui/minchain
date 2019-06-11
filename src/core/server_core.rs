@@ -5,6 +5,7 @@ use p2p::connection_manager::ConnectionManager;
 pub enum State {
     Init,
     Standby,
+    Active,
     ConnectedToNetwork,
     ShuttingDown,
 }
@@ -68,6 +69,7 @@ impl ServerCore {
         };
     }
 
+    #[allow(dead_code)]
     pub fn get_my_current_state(&self) -> State {
         self.server_state.clone()
     }
@@ -76,10 +78,10 @@ impl ServerCore {
 impl Drop for ServerCore {
     fn drop(&mut self) -> () { // shutdown_server
         self.server_state = State::ShuttingDown;
-        println!("Shutdown server...");
+        println!("Shutdown server ...");
     }
 }
 
-const fn get_my_ip() -> Ipv4Addr {
+pub const fn get_my_ip() -> Ipv4Addr {
     Ipv4Addr::LOCALHOST
 }

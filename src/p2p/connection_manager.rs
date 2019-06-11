@@ -3,9 +3,9 @@ use std::{thread, time};
 use std::sync::{Arc, Mutex};
 use std::str::from_utf8;
 use std::net::{TcpListener, TcpStream, SocketAddr};
-use std::collections::HashSet;
 use p2p::message_manager::{MessageManager, MsgType};
 use p2p::core_node_list::CoreNodeList;
+use p2p::edge_node_list::EdgeNodeList;
 
 const PING_INTERVAL: time::Duration = time::Duration::from_secs(10);
 
@@ -14,18 +14,20 @@ pub struct ConnectionManager {
     addr: SocketAddr,
     my_c_addr: Option<SocketAddr>,
     core_node_set: Arc<Mutex<CoreNodeList>>,
+    edge_node_set: Arc<Mutex<EdgeNodeList>>,
     mm: MessageManager,
 }
 
 impl ConnectionManager {
-    pub fn new(addr: SocketAddr) -> ConnectionManager {
+    pub fn new(self_addr: SocketAddr) -> ConnectionManager {
         println!("Initializing ConnectionManager ...");
         let mut core_node_list = CoreNodeList::new();
-        core_node_list.add(addr);
+        core_node_list.add(self_addr);
         ConnectionManager {
-            addr,
+            addr: self_addr,
             my_c_addr: None,
             core_node_set: Arc::new(Mutex::new(core_node_list)),
+            edge_node_set: Arc::new(Mutex::new(EdgeNodeList::new())),
             mm: MessageManager::new(),
         }
     }
@@ -78,7 +80,7 @@ impl ConnectionManager {
 
     pub fn send_msg_to_all_peer(&mut self, msg: String) {
         println!("send_msg_to_all_peer was called!");
-        let list = self.core_node_set.lock().unwrap().list.clone();
+        let list = self.core_node_set.lock().unwrap().get_list();
         for peer in list {
             if peer != self.addr {
                 println!("message will be sent to ... ({})", peer);
@@ -95,6 +97,16 @@ impl ConnectionManager {
     /// Remove a core node that has left from the list.
     fn remove_peer(&mut self, peer: &SocketAddr) {
         self.core_node_set.lock().unwrap().remove(peer);
+    }
+
+    /// Add a edge node to the list.
+    fn add_edge_node(&mut self, edge: &SocketAddr) {
+        self.edge_node_set.lock().unwrap().add(*edge);
+    }
+
+    /// Remove a edge node that has left from the list.
+    fn remove_edge_node(&mut self, edge: &SocketAddr) {
+        self.edge_node_set.lock().unwrap().remove(edge);
     }
 
     /// Always listen during server startup.
@@ -120,7 +132,7 @@ impl ConnectionManager {
 
     fn build_message(&self) -> String {
         let mut vec = Vec::new();
-        vec.extend(self.core_node_set.lock().unwrap().list.clone().into_iter());
+        vec.extend(self.core_node_set.lock().unwrap().get_list().into_iter());
         self.mm.build(MsgType::CoreList, self.addr, Some(vec))
     }
 
@@ -135,21 +147,30 @@ impl ConnectionManager {
                                 println!("ADD node request was received!!");
                                 self.add_peer(&msg.my_addr);
                                 if self.addr != msg.my_addr {
-                                    let msg = self.build_message();
-                                    self.send_msg_to_all_peer(msg);
+                                    let m = self.build_message();
+                                    self.send_msg_to_all_peer(m);
                                 };
                             },
                             MsgType::Remove => {
                                 println!("REMOVE request was received!! from: ({})", msg.my_addr);
                                 self.remove_peer(&msg.my_addr);
-                                let msg = self.build_message();
-                                self.send_msg_to_all_peer(msg);
+                                let m = self.build_message();
+                                self.send_msg_to_all_peer(m);
                             },
                             MsgType::Ping => {},
                             MsgType::RequestCoreList => {
                                 println!("List for Core nodes was requested!!");
-                                let send_msg = self.build_message();
-                                self.send_msg(&msg.my_addr, send_msg);
+                                let m = self.build_message();
+                                self.send_msg(&msg.my_addr, m);
+                            },
+                            MsgType::AddAsEdge => {
+                                self.add_edge_node(&msg.my_addr);
+                                let m = self.build_message();
+                                self.send_msg(&msg.my_addr, m);
+                            },
+                            MsgType::RemoveEdge => {
+                                println!("REMOVE_EDGE request was received!! from: ({})", msg.my_addr);
+                                self.remove_edge_node(&msg.my_addr);
                             },
                             unknown => {
                                 println!("received unknown command: {:?}", unknown);
@@ -166,7 +187,7 @@ impl ConnectionManager {
                                 let mut new_core_set = CoreNodeList::new();
                                 new_core_set.list = pl.drain(..).collect();
                                 println!("latest core node list: {}", new_core_set);
-                                self.core_node_set.lock().unwrap().list = new_core_set.list;
+                                self.core_node_set.lock().unwrap().overwrite(new_core_set.list);
                             },
                             unknown => {
                                 eprintln!("received unknown command: {:?}", unknown);
@@ -181,27 +202,22 @@ impl ConnectionManager {
 
     /// Check all connected core nodes every PING_INTERVAL for survival.
     fn check_peers_connection(&mut self) {
-        let dead_c_node_set: HashSet<SocketAddr> =
-            self.core_node_set
-                .lock()
-                .unwrap()
-                .list
-                .iter()
-                .cloned()
-                .filter(|x| !self.is_alive(x))
-                .collect();
+        let mut changed = false;
 
-        if dead_c_node_set.len() > 0 {
-            println!("Removing: {:?}", dead_c_node_set);
-            self.core_node_set.lock().unwrap().list = &self.core_node_set.lock().unwrap().list - &dead_c_node_set;
-            println!("current core node list: {}", self.core_node_set.lock().unwrap());
+        let list = self.core_node_set.lock().unwrap().get_list();
+        for peer in &list {
+            if !self.is_alive(peer) {
+                self.remove_peer(peer); // Remove dead node
+                changed = true;
+            }
+        }
+        println!("current core node list: {}", self.core_node_set.lock().unwrap());
 
+        if changed {
             // Notify with broadcast
             let msg = self.build_message();
             self.send_msg_to_all_peer(msg);
-        } else {
-            println!("current core node list: {}", self.core_node_set.lock().unwrap());
-        };
+        }
 
         let mut self_clone = self.clone();
         thread::spawn(move || {

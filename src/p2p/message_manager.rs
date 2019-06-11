@@ -6,8 +6,8 @@ use std::net::SocketAddr;
 use self::serde::{Serialize, Deserialize};
 use self::semver::Version;
 
-static PROTOCOL_NAME: &'static str = "mincoin_protocol";
-static PROTOCOL_VERSION: &'static str = "0.1.0";
+const PROTOCOL_NAME: &'static str = "mincoin_protocol";
+const PROTOCOL_VERSION: &'static str = "0.1.0";
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub enum MsgType {

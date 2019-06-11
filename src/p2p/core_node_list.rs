@@ -21,11 +21,11 @@ impl CoreNodeList {
     /// Remove a core node that has left from the list.
     pub fn remove(&mut self, peer: &SocketAddr) {
         if self.list.contains(peer) {
-            println!("Removing peer...");
+            println!("Removing peer ... ({})", *peer);
             self.list.remove(peer);
             println!("Current Core list: {:?}", self.list);
         };
-    } // TODO: 上手くremoveされないバグ有り
+    }
 
     /// Overwrite in bulk after checking the connection status of multiple peers.
     pub fn overwrite(&mut self, new_list: HashSet<SocketAddr>) {
@@ -37,6 +37,13 @@ impl CoreNodeList {
     /// Return list of currently connected states peer.
     pub fn get_list(&self) -> HashSet<SocketAddr> {
         self.list.clone()
+    }
+
+    /// リストのトップにあるPeerを返却する
+    pub fn get_top_peer(&self) -> SocketAddr {
+        let mut vec = Vec::new();
+        vec.extend(self.list.clone().into_iter());
+        vec[0]
     }
 }
 
