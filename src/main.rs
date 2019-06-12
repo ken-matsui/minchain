@@ -6,8 +6,8 @@ mod p2p;
 use std::env;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use core::server::{Server, Overload};
-use core::client::Client;
+
+use core::cs::{CS, Client, Server, Overload};
 
 fn wait_for_ctlc() {
     let running = Arc::new(AtomicBool::new(true));

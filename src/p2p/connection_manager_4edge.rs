@@ -30,7 +30,7 @@ impl ConnectionManager4Edge {
     }
 
     /// Start standby. (for ClientCore)
-    pub fn start(&mut self) {
+    pub fn start(&mut self) { // FIXME: connection_managerと同じ内容
         let self_clone = self.clone();
         { // Reference: https://stackoverflow.com/a/33455247
             let self_clone = self_clone.clone();
