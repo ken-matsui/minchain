@@ -1,8 +1,7 @@
 use std::net::{SocketAddr, ToSocketAddrs};
 
 use crate::core::state::{State, get_my_addr};
-use p2p::connection_manager::ConnectionManager;
-use p2p::connection_manager_4edge::ConnectionManager4Edge;
+use p2p::connection_manager::{ConnectionManager, ConnectionManager4Edge};
 
 pub trait CS {
     /// Start standby.
