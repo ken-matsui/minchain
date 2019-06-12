@@ -18,6 +18,11 @@ pub enum MsgType {
     Ping,
     AddAsEdge,
     RemoveEdge,
+    NewTransaction,
+    NewBlock,
+    RequestFullChain,
+    RspFullChain,
+    Enhanced,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -56,8 +61,6 @@ impl MessageManager {
             Err("Protocol name is not matched")
         } else if Version::parse(&msg.version) > Version::parse(PROTOCOL_VERSION) {
             Err("Protocol version is not matched")
-        } else if msg.msg_type == MsgType::CoreList {
-            Ok(msg)
         } else {
             Ok(msg)
         }

@@ -16,7 +16,7 @@ pub trait NodeList {
 
 #[derive(Clone)]
 pub struct CoreNodeList {
-    pub list: HashSet<SocketAddr>,
+    list: HashSet<SocketAddr>,
 }
 
 impl CoreNodeList {
@@ -65,7 +65,7 @@ impl std::fmt::Display for CoreNodeList {
 
 #[derive(Clone)]
 pub struct EdgeNodeList {
-    pub list: HashSet<SocketAddr>,
+    list: HashSet<SocketAddr>,
 }
 
 impl EdgeNodeList {

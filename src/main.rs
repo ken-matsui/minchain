@@ -37,9 +37,15 @@ fn main() {
             wait_for_ctlc();
         };
     } else if &args[1] == "client" {
-        let mut my_p2p_client = Client::new(50095, "localhost:50082");
-        my_p2p_client.start();
-        wait_for_ctlc();
+        if args.len() > 2 && &args[2] == "1" {
+            let mut my_p2p_client = Client::new(50095, "localhost:50082");
+            my_p2p_client.start();
+            wait_for_ctlc();
+        } else {
+            let mut my_p2p_client = Client::new(50095, "localhost:50082");
+            my_p2p_client.start();
+            wait_for_ctlc();
+        };
     } else {
         eprintln!("cargo run (server|client)");
         eprintln!("cargo run server (genesis)");

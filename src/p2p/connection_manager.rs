@@ -7,6 +7,7 @@ use std::net::{TcpListener, TcpStream, SocketAddr};
 
 use p2p::message_manager::{MessageManager, MsgType};
 use p2p::node_list::{NodeList, CoreNodeList, EdgeNodeList};
+use p2p::protocol_handler::ProtocolHandler;
 
 const PING_INTERVAL: Duration = Duration::from_secs(10);
 
@@ -21,6 +22,7 @@ pub struct ConnectionManager {
     core_node_set: Arc<Mutex<CoreNodeList>>,
     edge_node_set: Arc<Mutex<EdgeNodeList>>,
     mm: MessageManager,
+    ph: ProtocolHandler,
 }
 
 impl ConnectionManager {
@@ -34,6 +36,7 @@ impl ConnectionManager {
             core_node_set: Arc::new(Mutex::new(core_node_list)),
             edge_node_set: Arc::new(Mutex::new(EdgeNodeList::new())),
             mm: MessageManager::new(),
+            ph: ProtocolHandler::new(),
         }
     }
 
@@ -145,60 +148,57 @@ impl ConnectionManager {
         match self.mm.parse(data) {
             Ok(msg) => {
                 println!("Connected by .. ({})", msg.my_addr);
-                match msg.payload {
-                    None => {
-                        match msg.msg_type {
-                            MsgType::Add => {
-                                println!("ADD node request was received!!");
-                                self.add_peer(&msg.my_addr);
-                                if self.addr != msg.my_addr {
-                                    let m = self.build_message();
-                                    self.send_msg_to_all_peer(m);
-                                };
-                            },
-                            MsgType::Remove => {
-                                println!("REMOVE request was received!! from: ({})", msg.my_addr);
-                                self.remove_peer(&msg.my_addr);
-                                let m = self.build_message();
-                                self.send_msg_to_all_peer(m);
-                            },
-                            MsgType::Ping => {},
-                            MsgType::RequestCoreList => {
-                                println!("List for Core nodes was requested!!");
-                                let m = self.build_message();
-                                self.send_msg(&msg.my_addr, m);
-                            },
-                            MsgType::AddAsEdge => {
-                                self.add_edge_node(&msg.my_addr);
-                                let m = self.build_message();
-                                self.send_msg(&msg.my_addr, m);
-                            },
-                            MsgType::RemoveEdge => {
-                                println!("REMOVE_EDGE request was received!! from: ({})", msg.my_addr);
-                                self.remove_edge_node(&msg.my_addr);
-                            },
-                            unknown => {
-                                println!("received unknown command: {:?}", unknown);
-                            },
+                match msg.msg_type {
+                    MsgType::Add => {
+                        println!("ADD node request was received!!");
+                        self.add_peer(&msg.my_addr);
+                        if self.addr != msg.my_addr {
+                            let m = self.build_message();
+                            self.send_msg_to_all_peer(m);
                         };
                     },
-                    Some(mut pl) => {
-                        match msg.msg_type {
-                            MsgType::CoreList => {
-                                // TODO: 受信したリストをただ上書きしてしまうのは
-                                // 本来セキュリティ的にはよろしくない。
-                                // 信頼できるノードの鍵とかをセットしとく必要があるかも
-                                println!("Refresh the core node list ...");
-                                let mut new_core_set = CoreNodeList::new();
-                                new_core_set.list = pl.drain(..).collect();
-                                println!("latest core node list: {}", new_core_set);
-                                self.core_node_set.lock().unwrap().overwrite(new_core_set.list);
-                            },
-                            unknown => {
-                                eprintln!("received unknown command: {:?}", unknown);
-                            },
-                        };
+                    MsgType::Remove => {
+                        println!("REMOVE request was received!! from: ({})", msg.my_addr);
+                        self.remove_peer(&msg.my_addr);
+                        let m = self.build_message();
+                        self.send_msg_to_all_peer(m);
                     },
+                    MsgType::Ping => {},
+                    MsgType::RequestCoreList => {
+                        println!("List for Core nodes was requested!!");
+                        let m = self.build_message();
+                        self.send_msg(&msg.my_addr, m);
+                    },
+                    MsgType::AddAsEdge => {
+                        self.add_edge_node(&msg.my_addr);
+                        let m = self.build_message();
+                        self.send_msg(&msg.my_addr, m);
+                    },
+                    MsgType::RemoveEdge => {
+                        println!("REMOVE_EDGE request was received!! from: ({})", msg.my_addr);
+                        self.remove_edge_node(&msg.my_addr);
+                    },
+                    MsgType::CoreList => {
+                        // TODO: 受信したリストをただ上書きしてしまうのは
+                        // 本来セキュリティ的にはよろしくない。
+                        // 信頼できるノードの鍵とかをセットしとく必要があるかも
+                        println!("Refresh the core node list ...");
+                        let mut payload = msg.payload.unwrap();
+                        let new_core_set = payload.drain(..).collect();
+                        println!("latest core node list: {:?}", new_core_set);
+                        self.core_node_set.lock().unwrap().overwrite(new_core_set);
+                    },
+                    MsgType::NewTransaction => {}, // TODO: 新規transactionを登録する処理
+                    MsgType::NewBlock => {}, // TODO: 新規ブロックを検証する処理
+                    MsgType::RspFullChain => {}, // TODO: ブロックチェーン送信要求に応じて返却されたブロックチェーンを検証する処理
+                    MsgType::Enhanced => {
+                        // P2P Network を単なるトランスポートして使っているアプリケーションが独自拡張したメッセージはここで処理する。
+                        // SimpleBitcoin としてはこの種別は使わない
+                        // あらかじめ重複チェック（ポリシーによる。別にこの処理しなくてもいいかも
+                        println!("received enhanced message: {:?}", msg);
+                        self.ph.handle_message(msg);
+                    },
+                    _ => {},
                 };
             },
             Err(e) => eprintln!("Error: {}", e),
@@ -326,7 +326,7 @@ impl ConnectionManager4Edge {
             },
             Err(_) => {
                 eprintln!("Connection failed for peer : {}", peer);
-                self.core_node_set.lock().unwrap().list.remove(peer); // FIXME: connection_managerに同じ処理
+                self.core_node_set.lock().unwrap().remove(peer); // FIXME: connection_managerに同じ処理
                 eprintln!("Trying to connect into P2P network ...");
                 if self.core_node_set.lock().unwrap().get_list().len() != 0 {
                     let my_core_addr = self.core_node_set.lock().unwrap().get_top_peer();
@@ -382,10 +382,9 @@ impl ConnectionManager4Edge {
                             MsgType::CoreList => {
                                 // Coreノードに依頼してCoreノードのリストを受け取る口だけはある
                                 println!("Refresh the core node list ...");
-                                let mut new_core_set = CoreNodeList::new();
-                                new_core_set.list = pl.drain(..).collect();
-                                println!("latest core node list: {}", new_core_set);
-                                self.core_node_set.lock().unwrap().overwrite(new_core_set.list);
+                                let new_core_set = pl.drain(..).collect();
+                                println!("latest core node list: {:?}", new_core_set);
+                                self.core_node_set.lock().unwrap().overwrite(new_core_set);
                             },
                             unknown => {
                                 eprintln!("received unknown command: {:?}", unknown);
