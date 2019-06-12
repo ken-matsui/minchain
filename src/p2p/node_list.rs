@@ -59,7 +59,7 @@ impl NodeList for CoreNodeList {
 
 impl std::fmt::Display for CoreNodeList {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:?}", self.list)
+        write!(f, "{:#?}", self.list)
     }
 }
 
@@ -111,6 +111,6 @@ impl NodeList for EdgeNodeList {
 
 impl std::fmt::Display for EdgeNodeList {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:?}", self.list)
+        write!(f, "{:#?}", self.list)
     }
 }
