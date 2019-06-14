@@ -160,25 +160,29 @@ impl ConnectionManager {
                         println!("ADD node request was received!!");
                         self.add_peer(&msg.my_addr);
                         if self.addr != msg.my_addr {
-                            let m = self.build_message(MsgType::CoreList, Some(self.core_node_set.lock().unwrap().get_list()), None);
+                            let core_node_set = self.core_node_set.lock().unwrap().get_list();
+                            let m = self.build_message(MsgType::CoreList, Some(core_node_set), None);
                             self.send_msg_to_all_peer(m);
                         };
                     },
                     MsgType::Remove => {
                         println!("REMOVE request was received!! from: ({})", msg.my_addr);
                         self.remove_peer(&msg.my_addr);
-                        let m = self.build_message(MsgType::CoreList, Some(self.core_node_set.lock().unwrap().get_list()), None);
+                        let core_node_set = self.core_node_set.lock().unwrap().get_list();
+                        let m = self.build_message(MsgType::CoreList, Some(core_node_set), None);
                         self.send_msg_to_all_peer(m);
                     },
                     MsgType::Ping => {},
                     MsgType::RequestCoreList => {
                         println!("List for Core nodes was requested!!");
-                        let m = self.build_message(MsgType::CoreList, Some(self.core_node_set.lock().unwrap().get_list()), None);
+                        let core_node_set = self.core_node_set.lock().unwrap().get_list();
+                        let m = self.build_message(MsgType::CoreList, Some(core_node_set), None);
                         self.send_msg(&msg.my_addr, m);
                     },
                     MsgType::AddAsEdge => {
                         self.add_edge_node(&msg.my_addr);
-                        let m = self.build_message(MsgType::CoreList, Some(self.core_node_set.lock().unwrap().get_list()), None);
+                        let core_node_set = self.core_node_set.lock().unwrap().get_list();
+                        let m = self.build_message(MsgType::CoreList, Some(core_node_set), None);
                         self.send_msg(&msg.my_addr, m);
                     },
                     MsgType::RemoveEdge => {
@@ -246,7 +250,8 @@ impl ConnectionManager {
 
         if changed {
             // Notify with broadcast
-            let msg = self.build_message(MsgType::CoreList, Some(self.core_node_set.lock().unwrap().get_list()), None);
+            let core_node_set = self.core_node_set.lock().unwrap().get_list();
+            let msg = self.build_message(MsgType::CoreList, Some(core_node_set), None);
             self.send_msg_to_all_peer(msg);
         }
 
@@ -339,34 +344,46 @@ impl ConnectionManager4Edge {
         });
     }
 
+    // TODO: 同じのがある．
     pub fn build_message(&self, msg_type: MsgType, new_core_set: Option<HashSet<SocketAddr>>, new_transaction: Option<Transaction>) -> String {
         message::build(msg_type, self.addr, new_core_set, new_transaction)
     }
 
-    #[allow(dead_code)]
-    pub fn send_msg(&mut self, peer: &SocketAddr, msg: String) {
-        println!("Sending ... {}", msg);
+    fn send(&mut self, peer: &SocketAddr, msg: &String) -> Result<(), Result<(), ()>> {
         match TcpStream::connect(peer) {
             Ok(mut stream) => {
+                let msg = msg.clone();
                 thread::spawn(move || {
                     stream.write(msg.as_bytes()).unwrap();
                 });
+                Ok(())
             },
             Err(_) => {
                 eprintln!("Connection failed for peer : {}", peer);
                 self.core_node_set.lock().unwrap().remove(peer); // FIXME: connection_managerに同じ処理
                 eprintln!("Trying to connect into P2P network ...");
                 if self.core_node_set.lock().unwrap().get_list().len() != 0 {
-                    let my_core_addr = self.core_node_set.lock().unwrap().get_top_peer();
-                    self.my_core_addr = my_core_addr;
+                    self.my_core_addr = self.core_node_set.lock().unwrap().get_top_peer();
                     self.connect_to_core_node();
-                    self.send_msg(&my_core_addr, msg);
+                    Err(Ok(()))
                 } else {
-                    println!("No core node found in our list ...");
-//                    self.ping_timer.cancel(); // TODO:
+                    eprintln!("No core node found in our list ...");
+                    Err(Err(()))
                 }
             },
         }
+    }
+
+    pub fn send_msg(&mut self, peer: &SocketAddr, msg: String) {
+        println!("Sending ... {}", msg);
+        match self.send(peer, &msg) {
+            Ok(_) => {},
+            Err(Ok(_)) => {
+                let my_core_addr = self.my_core_addr;
+                self.send_msg(&my_core_addr, msg)
+            },
+            Err(Err(_)) => {},
+        };
     }
 
     /// Open the server socket and shift to standby mode.
@@ -426,25 +443,12 @@ impl ConnectionManager4Edge {
 
     /// Send a message to confirm valid nodes.
     fn send_ping(&mut self) {
-        match TcpStream::connect(self.my_core_addr) {
-            Ok(mut stream) => {
-                let msg = message::build(MsgType::Ping, self.addr, None, None);
-                thread::spawn(move || {
-                    stream.write(msg.as_bytes()).unwrap();
-                });
-            },
-            Err(_) => { // FIXME: self.send_msgと同じ内容
-                println!("Connection failed for peer : {}", self.my_core_addr);
-                self.core_node_set.lock().unwrap().remove(&self.my_core_addr);
-                println!("Trying to connect into P2P network ...");
-                if self.core_node_set.lock().unwrap().get_list().len() != 0 {
-                    self.my_core_addr = self.core_node_set.lock().unwrap().get_top_peer();
-                    self.connect_to_core_node();
-                } else {
-                    println!("No core node found in our list ...");
-//                    self.ping_timer.cancel(); // TODO:
-                }
-            },
+        let msg = message::build(MsgType::Ping, self.addr, None, None);
+        let my_core_addr = self.my_core_addr;
+        match self.send(&my_core_addr, &msg) {
+            Ok(_) => {},
+            Err(Ok(_)) => {},
+            Err(Err(_)) => return,
         };
 
         let mut self_clone = self.clone();
