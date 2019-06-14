@@ -1,4 +1,4 @@
-use p2p::message_manager::Message;
+use p2p::message::Message;
 
 #[derive(Clone)]
 pub struct ProtocolHandler;
