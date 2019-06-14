@@ -1,10 +1,13 @@
-use std::net::ToSocketAddrs;
+use std::net::{ToSocketAddrs, SocketAddr};
 
 use core::state::{State, get_my_addr};
 use p2p::connection_manager::ConnectionManager4Edge;
+use p2p::message::MsgType;
+use transaction::pool::Transaction;
 
 pub struct Client {
     server_state: State,
+    my_core_addr: SocketAddr,
     cm: ConnectionManager4Edge,
 }
 
@@ -17,6 +20,7 @@ impl Client {
 
         Client {
             server_state: State::Init,
+            my_core_addr: core_addr,
             cm: ConnectionManager4Edge::new(my_addr, core_addr),
         }
     }
@@ -30,6 +34,12 @@ impl Client {
     #[allow(dead_code)]
     pub fn get_my_current_state(&self) -> State {
         self.server_state.clone()
+    }
+
+    pub fn send_message_to_my_core_node(&mut self, msg_type: MsgType, msg: Transaction) {
+        let msg_txt = self.cm.build_message(msg_type, None, Some(msg));
+        println!("{}", msg_txt);
+        self.cm.send_msg(&self.my_core_addr, msg_txt);
     }
 }
 

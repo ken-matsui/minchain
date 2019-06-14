@@ -57,6 +57,13 @@ impl NodeList for CoreNodeList {
     }
 }
 
+impl CoreNodeList {
+    /// 与えられたpeerがリストに含まれているかどうかをチェックする
+    pub fn has_this_peer(&self, peer: &SocketAddr) -> bool {
+        self.list.contains(peer)
+    }
+}
+
 impl std::fmt::Display for CoreNodeList {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{:#?}", self.list)

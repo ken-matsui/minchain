@@ -9,16 +9,19 @@ mod transaction;
 use std::env;
 use std::thread;
 use std::time::Duration;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use core::server::{Overload, Server};
 use core::client::Client;
-use blockchain::block::Block;
-use blockchain::blockchain::Blockchain;
-use transaction::pool::{Transaction, TransactionPool};
+use transaction::pool::Transaction;
+use p2p::message::MsgType;
 
-const CHECK_INTERVAL: Duration = Duration::from_secs(10);
+fn help() {
+    eprintln!("cargo run (server|client)");
+    eprintln!("cargo run server (genesis)");
+    eprintln!("cargo run client (1)");
+}
 
 fn wait_for_ctlc() {
     let running = Arc::new(AtomicBool::new(true));
@@ -30,40 +33,11 @@ fn wait_for_ctlc() {
     println!("Interrupted by user. Exiting ...");
 }
 
-fn generate_block_with_tp(tp: Arc<Mutex<TransactionPool>>, bc: Blockchain, prev_block_hash: String) {
-    let mut bc = bc;
-    let mut prev_block_hash = prev_block_hash;
-
-    let mut tp_guard = tp.lock().unwrap();
-    match tp_guard.get_stored_transactions() {
-        Some(result) => {
-            let result_len = result.len();
-
-            let new_block = Block::new(result, prev_block_hash.clone());
-            bc.set_new_block(new_block.clone());
-            prev_block_hash = bc.get_hash(&new_block);
-            // ブロック生成に成功したらTransaction Poolはクリアする
-            tp_guard.clear_my_transactions(result_len);
-        },
-        None => println!("Transaction Pool is empty ..."),
-    };
-
-    println!("Current Blockchain is ... {:#?}", bc.get_chain());
-    println!("Current prev_block_hash is ... {}", prev_block_hash);
-
-    let tp = tp.clone();
-    thread::spawn(move || {
-        thread::sleep(CHECK_INTERVAL);
-        generate_block_with_tp(tp, bc, prev_block_hash);
-    });
-}
-
 fn main() {
     let args: Vec<String> = env::args().collect();
 
     if args.len() <= 1 {
-        eprintln!("cargo run (server|client)");
-        eprintln!("cargo run server (genesis)");
+        help();
     } else if &args[1] == "server" {
         if args.len() > 2 && &args[2] == "genesis" {
             let mut my_p2p_server = Server::new(50082);
@@ -79,43 +53,41 @@ fn main() {
         if args.len() > 2 && &args[2] == "1" {
             let mut my_p2p_client = Client::new(50095, "localhost:50082");
             my_p2p_client.start();
+
+            thread::sleep(Duration::from_secs(10));
+
+            let transaction = Transaction::new("test4".to_string(), "test5".to_string(), 3);
+            my_p2p_client.send_message_to_my_core_node(MsgType::NewTransaction, transaction);
+
+            let transaction2 = Transaction::new("test6".to_string(), "test7".to_string(), 2);
+            my_p2p_client.send_message_to_my_core_node(MsgType::NewTransaction, transaction2);
+
+            thread::sleep(Duration::from_secs(10));
+
+            let transaction3 = Transaction::new("test8".to_string(), "test9".to_string(), 10);
+            my_p2p_client.send_message_to_my_core_node(MsgType::NewTransaction, transaction3);
+
             wait_for_ctlc();
         } else {
             let mut my_p2p_client = Client::new(50088, "localhost:50082");
             my_p2p_client.start();
+
+            thread::sleep(Duration::from_secs(10));
+
+            let transaction = Transaction::new("test1".to_string(), "test2".to_string(), 3);
+            my_p2p_client.send_message_to_my_core_node(MsgType::NewTransaction, transaction);
+
+            let transaction2 = Transaction::new("test1".to_string(), "test3".to_string(), 2);
+            my_p2p_client.send_message_to_my_core_node(MsgType::NewTransaction, transaction2);
+
+            thread::sleep(Duration::from_secs(10));
+
+            let transaction3 = Transaction::new("test5".to_string(), "test6".to_string(), 10);
+            my_p2p_client.send_message_to_my_core_node(MsgType::NewTransaction, transaction3);
+
             wait_for_ctlc();
         };
-    } else if &args[1] == "blockchain" {
-        let my_genesis_block = Block::new_genesis();
-        let bc = Blockchain::new(my_genesis_block.clone());
-        let tp = Arc::new(Mutex::new(TransactionPool::new()));
-        let prev_block_hash = bc.get_hash(&my_genesis_block);
-        println!("genesis_block_hash : {}" , prev_block_hash);
-
-        let transaction = Transaction::new("test1", "test2", 3);
-        tp.lock().unwrap().set_new_transaction(transaction);
-
-        let transaction2 = Transaction::new("test1", "test3", 2);
-        tp.lock().unwrap().set_new_transaction(transaction2);
-
-        {
-            let tp = tp.clone();
-            let bc = bc.clone();
-            thread::spawn(move || {
-                thread::sleep(CHECK_INTERVAL);
-                generate_block_with_tp(tp, bc, prev_block_hash);
-            });
-        }
-
-        thread::sleep(Duration::from_secs(15));
-
-        let transaction3 = Transaction::new("test5", "test6", 10);
-        tp.lock().unwrap().set_new_transaction(transaction3);
-
-        wait_for_ctlc();
     } else {
-        eprintln!("cargo run (server|client)");
-        eprintln!("cargo run server (genesis)");
-        eprintln!("cargo run blockchain");
+        help();
     };
 }

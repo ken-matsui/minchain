@@ -1,13 +1,11 @@
 use std::thread;
 use std::time::Duration;
-use std::sync::{Arc, Mutex};
 use std::net::{SocketAddr, ToSocketAddrs};
 
 use core::state::{State, get_my_addr};
 use p2p::connection_manager::ConnectionManager;
 use blockchain::block::Block;
 use blockchain::blockchain::Blockchain;
-use transaction::pool::TransactionPool;
 
 const CHECK_INTERVAL: Duration = Duration::from_secs(10);
 
@@ -18,7 +16,6 @@ pub struct Server {
     cm: ConnectionManager,
     prev_block_hash: String,
     bc: Blockchain,
-    tp: Arc<Mutex<TransactionPool>>,
 }
 
 pub trait Overload<T> {
@@ -40,7 +37,6 @@ impl Overload<u16> for Server {
             cm: ConnectionManager::new(my_addr),
             prev_block_hash: bc.get_hash(&my_genesis_block),
             bc,
-            tp: Arc::new(Mutex::new(TransactionPool::new())),
         }
     }
 }
@@ -63,7 +59,6 @@ impl Overload<(u16, &'static str)> for Server {
             cm: ConnectionManager::new(my_addr),
             prev_block_hash: bc.get_hash(&my_genesis_block),
             bc,
-            tp: Arc::new(Mutex::new(TransactionPool::new())),
         }
     }
 }
@@ -72,6 +67,12 @@ impl Server {
     pub fn start(&mut self) {
         self.server_state = State::Standby;
         self.cm.start();
+
+        let mut self_clone = self.clone();
+        thread::spawn(move || {
+            thread::sleep(CHECK_INTERVAL);
+            self_clone.generate_block_with_tp();
+        });
     }
 
     #[allow(dead_code)]
@@ -90,7 +91,7 @@ impl Server {
     }
 
     fn generate_block_with_tp(&mut self) {
-        let mut tp_guard = self.tp.lock().unwrap();
+        let mut tp_guard = self.cm.tp.lock().unwrap();
         match tp_guard.get_stored_transactions() {
             Some(result) => {
                 let result_len = result.len();

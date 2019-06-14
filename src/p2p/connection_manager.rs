@@ -5,9 +5,12 @@ use std::sync::{Arc, Mutex};
 use std::str::from_utf8;
 use std::net::{TcpListener, TcpStream, SocketAddr};
 
-use p2p::message_manager::{MessageManager, MsgType};
+use p2p::message;
+use p2p::message::MsgType;
 use p2p::node_list::{NodeList, CoreNodeList, EdgeNodeList};
 use p2p::protocol_handler::ProtocolHandler;
+use transaction::pool::{TransactionPool, Transaction};
+use std::collections::HashSet;
 
 const PING_INTERVAL: Duration = Duration::from_secs(10);
 
@@ -21,8 +24,8 @@ pub struct ConnectionManager {
     my_c_addr: Option<SocketAddr>,
     core_node_set: Arc<Mutex<CoreNodeList>>,
     edge_node_set: Arc<Mutex<EdgeNodeList>>,
-    mm: MessageManager,
     ph: ProtocolHandler,
+    pub tp: Arc<Mutex<TransactionPool>>,
 }
 
 impl ConnectionManager {
@@ -35,8 +38,8 @@ impl ConnectionManager {
             my_c_addr: None,
             core_node_set: Arc::new(Mutex::new(core_node_list)),
             edge_node_set: Arc::new(Mutex::new(EdgeNodeList::new())),
-            mm: MessageManager::new(),
             ph: ProtocolHandler::new(),
+            tp: Arc::new(Mutex::new(TransactionPool::new())),
         }
     }
 
@@ -66,7 +69,7 @@ impl ConnectionManager {
 
     fn connect_to_p2pnw(&self, node_addr: SocketAddr) {
         let mut stream = TcpStream::connect(node_addr).unwrap();
-        let msg = self.mm.build(MsgType::Add, self.addr, None);
+        let msg = message::build(MsgType::Add, self.addr, None, None);
         thread::spawn(move || {
             stream.write(msg.as_bytes()).unwrap();
         });
@@ -138,14 +141,18 @@ impl ConnectionManager {
         }
     }
 
-    fn build_message(&self) -> String {
-        let mut vec = Vec::new();
-        vec.extend(self.core_node_set.lock().unwrap().get_list().into_iter());
-        self.mm.build(MsgType::CoreList, self.addr, Some(vec))
+    /// 与えられたnodeがCoreノードのリストに含まれているかどうかをチェックする
+    fn is_in_core_set(&self, peer: &SocketAddr) -> bool {
+        self.core_node_set.lock().unwrap().has_this_peer(peer)
+    }
+
+    // FIXME: ConnectionManager4Edgeと同じ
+    pub fn build_message(&self, msg_type: MsgType, new_core_set: Option<HashSet<SocketAddr>>, new_transaction: Option<Transaction>) -> String {
+        message::build(msg_type, self.addr, new_core_set, new_transaction)
     }
 
     fn handle_message(&mut self, data: &String) {
-        match self.mm.parse(data) {
+        match message::parse(data) {
             Ok(msg) => {
                 println!("Connected by .. ({})", msg.my_addr);
                 match msg.msg_type {
@@ -153,25 +160,25 @@ impl ConnectionManager {
                         println!("ADD node request was received!!");
                         self.add_peer(&msg.my_addr);
                         if self.addr != msg.my_addr {
-                            let m = self.build_message();
+                            let m = self.build_message(MsgType::CoreList, Some(self.core_node_set.lock().unwrap().get_list()), None);
                             self.send_msg_to_all_peer(m);
                         };
                     },
                     MsgType::Remove => {
                         println!("REMOVE request was received!! from: ({})", msg.my_addr);
                         self.remove_peer(&msg.my_addr);
-                        let m = self.build_message();
+                        let m = self.build_message(MsgType::CoreList, Some(self.core_node_set.lock().unwrap().get_list()), None);
                         self.send_msg_to_all_peer(m);
                     },
                     MsgType::Ping => {},
                     MsgType::RequestCoreList => {
                         println!("List for Core nodes was requested!!");
-                        let m = self.build_message();
+                        let m = self.build_message(MsgType::CoreList, Some(self.core_node_set.lock().unwrap().get_list()), None);
                         self.send_msg(&msg.my_addr, m);
                     },
                     MsgType::AddAsEdge => {
                         self.add_edge_node(&msg.my_addr);
-                        let m = self.build_message();
+                        let m = self.build_message(MsgType::CoreList, Some(self.core_node_set.lock().unwrap().get_list()), None);
                         self.send_msg(&msg.my_addr, m);
                     },
                     MsgType::RemoveEdge => {
@@ -179,16 +186,35 @@ impl ConnectionManager {
                         self.remove_edge_node(&msg.my_addr);
                     },
                     MsgType::CoreList => {
-                        // TODO: 受信したリストをただ上書きしてしまうのは
-                        // 本来セキュリティ的にはよろしくない。
+                        // TODO: 受信したリストをただ上書きしてしまうのは、本来セキュリティ的にはよろしくない。
                         // 信頼できるノードの鍵とかをセットしとく必要があるかも
                         println!("Refresh the core node list ...");
-                        let mut payload = msg.payload.unwrap();
-                        let new_core_set = payload.drain(..).collect();
+                        let new_core_set = msg.new_core_set.unwrap();
                         println!("latest core node list: {:?}", new_core_set);
                         self.core_node_set.lock().unwrap().overwrite(new_core_set);
                     },
-                    MsgType::NewTransaction => {}, // TODO: 新規transactionを登録する処理
+                    MsgType::NewTransaction => {
+                        let new_transaction = msg.new_transaction.unwrap();
+                        println!("received new_transaction: {:#?}", new_transaction);
+
+                        match self.tp.lock().unwrap().get_stored_transactions() {
+                            Some(current_transactions) => {
+                                if current_transactions.contains(&new_transaction) {
+                                    println!("this is already pooled transaction: {:#?}", new_transaction);
+                                    return;
+                                };
+                            },
+                            None => {},
+                        };
+
+                        if !self.is_in_core_set(&msg.my_addr)  {
+                            self.tp.lock().unwrap().set_new_transaction(new_transaction.clone());
+                            let new_message = self.build_message(MsgType::NewBlock, None, Some(new_transaction));
+                            self.send_msg_to_all_peer(new_message);
+                        } else {
+                            self.tp.lock().unwrap().set_new_transaction(new_transaction);
+                        };
+                    },
                     MsgType::NewBlock => {}, // TODO: 新規ブロックを検証する処理
                     MsgType::RspFullChain => {}, // TODO: ブロックチェーン送信要求に応じて返却されたブロックチェーンを検証する処理
                     MsgType::Enhanced => {
@@ -220,7 +246,7 @@ impl ConnectionManager {
 
         if changed {
             // Notify with broadcast
-            let msg = self.build_message();
+            let msg = self.build_message(MsgType::CoreList, Some(self.core_node_set.lock().unwrap().get_list()), None);
             self.send_msg_to_all_peer(msg);
         }
 
@@ -235,7 +261,7 @@ impl ConnectionManager {
     fn is_alive(&self, target: &SocketAddr) -> bool {
         match TcpStream::connect(target) {
             Ok(mut stream) => {
-                let msg = self.mm.build(MsgType::Ping, self.addr, None);
+                let msg = message::build(MsgType::Ping, self.addr, None, None);
                 let result = thread::spawn(move || {
                     stream.write(msg.as_bytes())
                 });
@@ -257,7 +283,7 @@ impl Drop for ConnectionManager {
         match self.my_c_addr {
             None => {},
             Some(my_c_addr) => {
-                let msg = self.mm.build(MsgType::Remove, self.addr, None);
+                let msg = message::build(MsgType::Remove, self.addr, None, None);
                 self.send_msg(&my_c_addr, msg);
             },
         };
@@ -269,7 +295,6 @@ pub struct ConnectionManager4Edge {
     addr: SocketAddr,
     my_core_addr: SocketAddr,
     core_node_set: Arc<Mutex<CoreNodeList>>,
-    mm: MessageManager,
 }
 
 impl ConnectionManager4Edge {
@@ -279,7 +304,6 @@ impl ConnectionManager4Edge {
             addr: self_addr,
             my_core_addr,
             core_node_set: Arc::new(Mutex::new(CoreNodeList::new())),
-            mm: MessageManager::new(),
         }
     }
 
@@ -309,10 +333,14 @@ impl ConnectionManager4Edge {
     /// 指定したCoreノードへ接続要求メッセージを送信する
     fn connect_to_p2pnw(&self, node_addr: SocketAddr) {
         let mut stream = TcpStream::connect(node_addr).unwrap();
-        let msg = self.mm.build(MsgType::AddAsEdge, self.addr, None);
+        let msg = message::build(MsgType::AddAsEdge, self.addr, None, None);
         thread::spawn(move || {
             stream.write(msg.as_bytes()).unwrap();
         });
+    }
+
+    pub fn build_message(&self, msg_type: MsgType, new_core_set: Option<HashSet<SocketAddr>>, new_transaction: Option<Transaction>) -> String {
+        message::build(msg_type, self.addr, new_core_set, new_transaction)
     }
 
     #[allow(dead_code)]
@@ -364,10 +392,10 @@ impl ConnectionManager4Edge {
 
     /// Process according to the received message.
     fn handle_message(&mut self, data: &String) {
-        match self.mm.parse(data) {
+        match message::parse(data) {
             Ok(msg) => {
                 println!("Connected by .. ({})", msg.my_addr);
-                match msg.payload {
+                match msg.new_core_set {
                     None => {
                         match msg.msg_type {
                             MsgType::Ping => {},
@@ -377,12 +405,11 @@ impl ConnectionManager4Edge {
                             },
                         };
                     },
-                    Some(mut pl) => {
+                    Some(new_core_set) => {
                         match msg.msg_type {
                             MsgType::CoreList => {
                                 // Coreノードに依頼してCoreノードのリストを受け取る口だけはある
                                 println!("Refresh the core node list ...");
-                                let new_core_set = pl.drain(..).collect();
                                 println!("latest core node list: {:?}", new_core_set);
                                 self.core_node_set.lock().unwrap().overwrite(new_core_set);
                             },
@@ -401,7 +428,7 @@ impl ConnectionManager4Edge {
     fn send_ping(&mut self) {
         match TcpStream::connect(self.my_core_addr) {
             Ok(mut stream) => {
-                let msg = self.mm.build(MsgType::Ping, self.addr, None);
+                let msg = message::build(MsgType::Ping, self.addr, None, None);
                 thread::spawn(move || {
                     stream.write(msg.as_bytes()).unwrap();
                 });

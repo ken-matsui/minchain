@@ -3,6 +3,10 @@ extern crate semver;
 
 use std::string::String;
 use std::net::SocketAddr;
+use std::collections::HashSet;
+
+use transaction::pool::Transaction;
+
 use self::serde::{Serialize, Deserialize};
 use self::semver::Version;
 
@@ -31,23 +35,25 @@ pub struct Message {
     pub version: String,
     pub msg_type: MsgType,
     pub my_addr: SocketAddr,
-    pub payload: Option<Vec<SocketAddr>>,
+    pub new_core_set: Option<HashSet<SocketAddr>>,
+    pub new_transaction: Option<Transaction>,
 }
 
 impl Message {
-    pub fn new(msg_type: MsgType, my_addr: SocketAddr, payload: Option<Vec<SocketAddr>>) -> Message {
+    pub fn new(msg_type: MsgType, my_addr: SocketAddr, new_core_set: Option<HashSet<SocketAddr>>, new_transaction: Option<Transaction>) -> Message {
         Message {
             protocol: PROTOCOL_NAME.to_string(),
             version: PROTOCOL_VERSION.to_string(),
             msg_type,
             my_addr,
-            payload,
+            new_core_set,
+            new_transaction,
         }
     }
 }
 
-pub fn build(msg_type: MsgType, my_addr: SocketAddr, payload: Option<Vec<SocketAddr>>) -> String {
-    let msg = Message::new(msg_type, my_addr, payload);
+pub fn build(msg_type: MsgType, my_addr: SocketAddr, new_core_set: Option<HashSet<SocketAddr>>, new_transaction: Option<Transaction>) -> String {
+    let msg = Message::new(msg_type, my_addr, new_core_set, new_transaction);
     serde_json::to_string(&msg).unwrap()
 }
 
