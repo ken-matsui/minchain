@@ -2,15 +2,15 @@ extern crate serde;
 
 use self::serde::{Serialize, Deserialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct Transaction {
-    sender: &'static str,
-    recipient: &'static str,
+    sender: String,
+    recipient: String,
     value: i32,
 }
 
 impl Transaction {
-    pub fn new(sender: &'static str, recipient: &'static str, value: i32) -> Transaction {
+    pub fn new(sender: String, recipient: String, value: i32) -> Transaction {
         Transaction { sender, recipient, value, }
     }
 }
