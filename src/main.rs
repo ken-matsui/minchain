@@ -50,13 +50,11 @@ fn generate_block_with_tp(tp: Arc<Mutex<TransactionPool>>, bc: Blockchain, prev_
     println!("Current Blockchain is ... {:#?}", bc.get_chain());
     println!("Current prev_block_hash is ... {}", prev_block_hash);
 
-    {
-        let tp = tp.clone();
-        thread::spawn(move || {
-            thread::sleep(CHECK_INTERVAL);
-            generate_block_with_tp(tp, bc, prev_block_hash);
-        });
-    }
+    let tp = tp.clone();
+    thread::spawn(move || {
+        thread::sleep(CHECK_INTERVAL);
+        generate_block_with_tp(tp, bc, prev_block_hash);
+    });
 }
 
 fn main() {
@@ -117,5 +115,6 @@ fn main() {
     } else {
         eprintln!("cargo run (server|client)");
         eprintln!("cargo run server (genesis)");
+        eprintln!("cargo run blockchain");
     };
 }
