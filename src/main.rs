@@ -81,7 +81,7 @@ fn main() {
             my_p2p_client.start();
             wait_for_ctlc();
         } else {
-            let mut my_p2p_client = Client::new(50095, "localhost:50082");
+            let mut my_p2p_client = Client::new(50088, "localhost:50082");
             my_p2p_client.start();
             wait_for_ctlc();
         };
