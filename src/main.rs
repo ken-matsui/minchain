@@ -12,7 +12,8 @@ use std::time::Duration;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use core::cs::{CS, Client, Server, Overload};
+use core::server::{Overload, Server};
+use core::client::Client;
 use blockchain::block::Block;
 use blockchain::blockchain::Blockchain;
 use transaction::pool::{Transaction, TransactionPool};
