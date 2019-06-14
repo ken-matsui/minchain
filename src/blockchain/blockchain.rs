@@ -4,6 +4,7 @@ use blockchain::block::Block;
 use self::crypto_hash::{Algorithm, hex_digest};
 use std::sync::{Mutex, Arc};
 
+#[derive(Clone, Debug)]
 pub struct Blockchain {
     genesis_block: Block,
     chain: Arc<Mutex<Vec<Block>>>,

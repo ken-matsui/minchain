@@ -4,16 +4,20 @@ extern crate serde;
 mod blockchain;
 mod core;
 mod p2p;
+mod transaction;
 
 use std::env;
-use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use core::cs::{CS, Client, Server, Overload};
 use blockchain::block::Block;
 use blockchain::blockchain::Blockchain;
+use transaction::pool::{Transaction, TransactionPool};
 
-use self::serde::{Serialize, Deserialize};
+const CHECK_INTERVAL: Duration = Duration::from_secs(10);
 
 fn wait_for_ctlc() {
     let running = Arc::new(AtomicBool::new(true));
@@ -23,6 +27,36 @@ fn wait_for_ctlc() {
     }).expect("Error setting Ctrl-C handler");
     while running.load(Ordering::SeqCst) {}
     println!("Interrupted by user. Exiting ...");
+}
+
+fn generate_block_with_tp(tp: Arc<Mutex<TransactionPool>>, bc: Blockchain, prev_block_hash: String) {
+    let mut bc = bc;
+    let mut prev_block_hash = prev_block_hash;
+
+    let mut tp_guard = tp.lock().unwrap();
+    match tp_guard.get_stored_transactions() {
+        Some(result) => {
+            let result_len = result.len();
+
+            let new_block = Block::new(result, prev_block_hash.clone());
+            bc.set_new_block(new_block.clone());
+            prev_block_hash = bc.get_hash(&new_block);
+            // ブロック生成に成功したらTransaction Poolはクリアする
+            tp_guard.clear_my_transactions(result_len);
+        },
+        None => println!("Transaction Pool is empty ..."),
+    };
+
+    println!("Current Blockchain is ... {:#?}", bc.get_chain());
+    println!("Current prev_block_hash is ... {}", prev_block_hash);
+
+    {
+        let tp = tp.clone();
+        thread::spawn(move || {
+            thread::sleep(CHECK_INTERVAL);
+            generate_block_with_tp(tp, bc, prev_block_hash);
+        });
+    }
 }
 
 fn main() {
@@ -54,40 +88,34 @@ fn main() {
         };
     } else if &args[1] == "blockchain" {
         let my_genesis_block = Block::new_genesis();
-        let mut bc = Blockchain::new(my_genesis_block.clone());
+        let bc = Blockchain::new(my_genesis_block.clone());
+        let tp = Arc::new(Mutex::new(TransactionPool::new()));
         let prev_block_hash = bc.get_hash(&my_genesis_block);
         println!("genesis_block_hash : {}" , prev_block_hash);
 
-        let transaction = Transaction {
-            sender: "test1",
-            recipient: "test2",
-            value: 3,
-        };
-        let new_block = Block::new(serde_json::to_string(&transaction).unwrap(), prev_block_hash);
-        bc.set_new_block(new_block.clone());
-        let new_block_hash = bc.get_hash(&new_block);
-        println!("1st_block_hash : {}", new_block_hash);
+        let transaction = Transaction::new("test1", "test2", 3);
+        tp.lock().unwrap().set_new_transaction(transaction);
 
-        let transaction2 = Transaction {
-            sender: "test1",
-            recipient: "test3",
-            value: 2,
-        };
-        let new_block2 = Block::new(serde_json::to_string(&transaction2).unwrap(), new_block_hash);
-        bc.set_new_block(new_block2);
+        let transaction2 = Transaction::new("test1", "test3", 2);
+        tp.lock().unwrap().set_new_transaction(transaction2);
 
-        println!("{:#?}", bc.get_chain());
-        let chain = bc.get_chain();
-        println!("{}", bc.is_valid(chain));
+        {
+            let tp = tp.clone();
+            let bc = bc.clone();
+            thread::spawn(move || {
+                thread::sleep(CHECK_INTERVAL);
+                generate_block_with_tp(tp, bc, prev_block_hash);
+            });
+        }
+
+        thread::sleep(Duration::from_secs(15));
+
+        let transaction3 = Transaction::new("test5", "test6", 10);
+        tp.lock().unwrap().set_new_transaction(transaction3);
+
+        wait_for_ctlc();
     } else {
         eprintln!("cargo run (server|client)");
         eprintln!("cargo run server (genesis)");
     };
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Transaction {
-    sender: &'static str,
-    recipient: &'static str,
-    value: i32,
 }
