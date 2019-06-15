@@ -1,8 +1,7 @@
-extern crate crypto_hash;
+use std::sync::{Mutex, Arc};
 
 use blockchain::block::Block;
-use self::crypto_hash::{Algorithm, hex_digest};
-use std::sync::{Mutex, Arc};
+use crypt::sha::get_double_sha256;
 
 #[derive(Clone, Debug)]
 pub struct Blockchain {
@@ -41,15 +40,10 @@ impl Blockchain {
         !self.is_valid(chain)
     }
 
-    fn get_double_sha256(&self, message: String) -> String {
-        let digest = hex_digest(Algorithm::SHA256, message.as_bytes());
-        hex_digest(Algorithm::SHA256, digest.as_bytes())
-    }
-
     /// 正当性確認に使うためブロックのハッシュ値を取る
     pub fn get_hash(&self, block: &Block) -> String {
         let block_string = serde_json::to_string(block).unwrap();
-        self.get_double_sha256(block_string)
+        get_double_sha256(block_string)
     }
 
     pub fn get_chain(&self) -> Vec<Block> {
