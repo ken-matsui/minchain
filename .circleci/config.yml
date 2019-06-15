@@ -19,9 +19,6 @@ jobs:
       - restore_cache:
           keys:
             - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
-      - run:
-          name: Install clippy and fmt
-          command: rustup component add clippy rustfmt
       - persist_to_workspace:
           root: .
           paths: .
@@ -31,6 +28,9 @@ jobs:
     steps:
       - attach_workspace:
           at: .
+      - run:
+          name: Install clippy and fmt
+          command: rustup component add clippy rustfmt
       - run:
           name: Run rust format
           command: cargo fmt -- --check
