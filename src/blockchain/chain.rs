@@ -28,10 +28,9 @@ impl Blockchain {
             .to_vec()
             .into_iter()
             .enumerate()
-            .find(move |(i, x): &(usize, Block)| {
-                self.get_hash(&chain[*i]) == x.clone().previous_block_hash.unwrap()
+            .any(move |(i, x): (usize, Block)| {
+                self.get_hash(&chain[i]) == x.previous_block_hash.unwrap()
             })
-            .is_some()
     }
 
     #[allow(dead_code)]
