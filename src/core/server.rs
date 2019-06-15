@@ -1,11 +1,11 @@
+use std::net::{SocketAddr, ToSocketAddrs};
 use std::thread;
 use std::time::Duration;
-use std::net::{SocketAddr, ToSocketAddrs};
 
-use core::state::{State, get_my_addr};
-use p2p::connection_manager::ConnectionManager;
 use blockchain::block::Block;
 use blockchain::blockchain::Blockchain;
+use core::state::{State, get_my_addr};
+use p2p::connection_manager::ConnectionManager;
 use transaction::pool::ToVecString;
 
 const CHECK_INTERVAL: Duration = Duration::from_secs(10);
@@ -86,7 +86,7 @@ impl Server {
             Some(addr) => {
                 self.server_state = State::ConnectedToNetwork;
                 self.cm.join_network(addr);
-            },
+            }
             None => println!("This server is runnning as Genesis Core Node ..."),
         };
     }
@@ -97,12 +97,13 @@ impl Server {
             Some(result) => {
                 let result_len = result.len();
 
-                let new_block = Block::new(result.to_vec_string(), Some(self.prev_block_hash.clone()));
+                let new_block =
+                    Block::new(result.to_vec_string(), Some(self.prev_block_hash.clone()));
                 self.bc.set_new_block(new_block.clone());
                 self.prev_block_hash = self.bc.get_hash(&new_block);
                 // ブロック生成に成功したらTransaction Poolはクリアする
                 tp_guard.clear_my_transactions(result_len);
-            },
+            }
             None => println!("Transaction Pool is empty ..."),
         };
 
@@ -118,7 +119,8 @@ impl Server {
 }
 
 impl Drop for Server {
-    fn drop(&mut self) -> () { // shutdown_server
+    fn drop(&mut self) -> () {
+        // shutdown_server
         self.server_state = State::ShuttingDown;
         println!("Shutdown server ...");
     }

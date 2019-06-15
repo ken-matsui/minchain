@@ -1,14 +1,14 @@
-extern crate serde;
 extern crate semver;
+extern crate serde;
 
-use std::string::String;
-use std::net::SocketAddr;
 use std::collections::HashSet;
+use std::net::SocketAddr;
+use std::string::String;
 
 use transaction::pool::Transaction;
 
-use self::serde::{Serialize, Deserialize};
 use self::semver::Version;
+use self::serde::{Deserialize, Serialize};
 
 const PROTOCOL_NAME: &'static str = "mincoin_protocol";
 const PROTOCOL_VERSION: &'static str = "0.1.0";
@@ -40,7 +40,12 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn new(msg_type: MsgType, my_addr: SocketAddr, new_core_set: Option<HashSet<SocketAddr>>, new_transaction: Option<Transaction>) -> Message {
+    pub fn new(
+        msg_type: MsgType,
+        my_addr: SocketAddr,
+        new_core_set: Option<HashSet<SocketAddr>>,
+        new_transaction: Option<Transaction>
+    ) -> Message {
         Message {
             protocol: PROTOCOL_NAME.to_string(),
             version: PROTOCOL_VERSION.to_string(),
@@ -52,7 +57,12 @@ impl Message {
     }
 }
 
-pub fn build(msg_type: MsgType, my_addr: SocketAddr, new_core_set: Option<HashSet<SocketAddr>>, new_transaction: Option<Transaction>) -> String {
+pub fn build(
+    msg_type: MsgType,
+    my_addr: SocketAddr,
+    new_core_set: Option<HashSet<SocketAddr>>,
+    new_transaction: Option<Transaction>
+) -> String {
     let msg = Message::new(msg_type, my_addr, new_core_set, new_transaction);
     serde_json::to_string(&msg).unwrap()
 }

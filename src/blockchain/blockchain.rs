@@ -1,4 +1,4 @@
-use std::sync::{Mutex, Arc};
+use std::sync::{Arc, Mutex};
 
 use blockchain::block::Block;
 use crypt::sha::get_double_sha256;
@@ -23,10 +23,7 @@ impl Blockchain {
     }
 
     pub fn is_valid(&self, chain: Vec<Block>) -> bool {
-        self.chain
-            .lock()
-            .unwrap()
-            [1..]
+        self.chain.lock().unwrap()[1..]
             .to_vec()
             .into_iter()
             .enumerate()

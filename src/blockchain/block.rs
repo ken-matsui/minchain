@@ -14,7 +14,8 @@ pub struct Block {
     nonce: Option<u128>,
 }
 
-const GENESIS_TXN: &'static str = "ad9b477b42b22cdf18b1335603d07378ace83561d8398fbfc8de94196c65d806";
+const GENESIS_TXN: &'static str =
+    "ad9b477b42b22cdf18b1335603d07378ace83561d8398fbfc8de94196c65d806";
 
 impl Block {
     /// Create a genesis block.
@@ -41,14 +42,16 @@ impl Block {
 }
 
 /// Proof of Work
-fn compute_nonce_for_pow(msg: String, difficulty: usize) -> u128 { // Nonce
+fn compute_nonce_for_pow(msg: String, difficulty: usize) -> u128 {
+    // Nonce
     // difficultyの数字を増やせば増やすほど、末尾で揃えなければならない桁数が増える
     let suffix = "0".repeat(difficulty);
-    for nonce in 0u128.. { // 総当たり的に数字を増やして試す
+    for nonce in 0u128.. {
+        // 総当たり的に数字を増やして試す
         let digest = get_double_sha256(format!("{}{}", msg, nonce));
         if digest.ends_with(&suffix) {
             return nonce;
         };
-    };
+    }
     panic!("Could not find a nonce");
 }

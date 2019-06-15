@@ -1,5 +1,5 @@
-use std::net::SocketAddr;
 use std::collections::HashSet;
+use std::net::SocketAddr;
 
 pub trait NodeList {
     /// Add a core node to the list.
@@ -21,7 +21,9 @@ pub struct CoreNodeList {
 
 impl CoreNodeList {
     pub fn new() -> CoreNodeList {
-        CoreNodeList{ list: HashSet::new() }
+        CoreNodeList {
+            list: HashSet::new(),
+        }
     }
 }
 
@@ -77,7 +79,9 @@ pub struct EdgeNodeList {
 
 impl EdgeNodeList {
     pub fn new() -> EdgeNodeList {
-        EdgeNodeList { list: HashSet::new() }
+        EdgeNodeList {
+            list: HashSet::new(),
+        }
     }
 }
 
