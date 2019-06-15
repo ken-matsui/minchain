@@ -208,7 +208,9 @@ impl ConnectionManager {
                         let new_transaction = msg.new_transaction.unwrap();
                         println!("received new_transaction: {:#?}", new_transaction);
 
-                        if let Some(current_transactions) = self.tp.lock().unwrap().get_stored_transactions() {
+                        if let Some(current_transactions) =
+                            self.tp.lock().unwrap().get_stored_transactions()
+                        {
                             if current_transactions.contains(&new_transaction) {
                                 println!(
                                     "this is already pooled transaction: {:#?}",
