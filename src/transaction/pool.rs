@@ -34,7 +34,7 @@ where
     T: ToString + Serialize,
 {
     fn to_vec_string(&self) -> Vec<String> {
-        self.into_iter().map(|x| x.to_string()).collect()
+        self.iter().map(|x| x.to_string()).collect()
     }
 }
 
@@ -65,7 +65,7 @@ impl TransactionPool {
     }
 
     pub fn get_stored_transactions(&self) -> Option<Vec<Transaction>> {
-        if self.transactions.len() > 0 {
+        if !self.transactions.is_empty() {
             Some(self.transactions.clone())
         } else {
             println!("Currently, it seems transaction pool is empty ...");

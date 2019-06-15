@@ -22,6 +22,7 @@ impl Blockchain {
         self.chain.lock().unwrap().push(block);
     }
 
+    #[allow(dead_code)]
     pub fn is_valid(&self, chain: Vec<Block>) -> bool {
         self.chain.lock().unwrap()[1..]
             .to_vec()
@@ -33,6 +34,7 @@ impl Blockchain {
             .is_some()
     }
 
+    #[allow(dead_code)]
     pub fn is_invalid(&self, chain: Vec<Block>) -> bool {
         !self.is_valid(chain)
     }

@@ -67,10 +67,10 @@ pub fn build(
     serde_json::to_string(&msg).unwrap()
 }
 
-pub fn parse(msg_str: &String) -> Result<Message, &'static str> {
+pub fn parse(msg_str: &str) -> Result<Message, &'static str> {
     let msg: Message = serde_json::from_str(msg_str).unwrap();
 
-    if msg.protocol != PROTOCOL_NAME.to_string() {
+    if msg.protocol != PROTOCOL_NAME {
         Err("Protocol name is not matched")
     } else if Version::parse(&msg.version) > Version::parse(PROTOCOL_VERSION) {
         Err("Protocol version is not matched")

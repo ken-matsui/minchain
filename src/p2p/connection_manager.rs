@@ -72,7 +72,7 @@ impl ConnectionManager {
         let mut stream = TcpStream::connect(node_addr).unwrap();
         let msg = message::build(MsgType::Add, self.addr, None, None);
         thread::spawn(move || {
-            stream.write(msg.as_bytes()).unwrap();
+            stream.write_all(msg.as_bytes()).unwrap();
         });
     }
 
@@ -80,7 +80,7 @@ impl ConnectionManager {
         match TcpStream::connect(peer) {
             Ok(mut stream) => {
                 thread::spawn(move || {
-                    stream.write(msg.as_bytes()).unwrap();
+                    stream.write_all(msg.as_bytes()).unwrap();
                 });
             }
             Err(_) => {
@@ -157,7 +157,7 @@ impl ConnectionManager {
         message::build(msg_type, self.addr, new_core_set, new_transaction)
     }
 
-    fn handle_message(&mut self, data: &String) {
+    fn handle_message(&mut self, data: &str) {
         match message::parse(data) {
             Ok(msg) => {
                 println!("Connected by .. ({})", msg.my_addr);
@@ -208,17 +208,14 @@ impl ConnectionManager {
                         let new_transaction = msg.new_transaction.unwrap();
                         println!("received new_transaction: {:#?}", new_transaction);
 
-                        match self.tp.lock().unwrap().get_stored_transactions() {
-                            Some(current_transactions) => {
-                                if current_transactions.contains(&new_transaction) {
-                                    println!(
-                                        "this is already pooled transaction: {:#?}",
-                                        new_transaction
-                                    );
-                                    return;
-                                };
-                            }
-                            None => {}
+                        if let Some(current_transactions) = self.tp.lock().unwrap().get_stored_transactions() {
+                            if current_transactions.contains(&new_transaction) {
+                                println!(
+                                    "this is already pooled transaction: {:#?}",
+                                    new_transaction
+                                );
+                                return;
+                            };
                         };
 
                         if !self.is_in_core_set(&msg.my_addr) {
@@ -285,10 +282,7 @@ impl ConnectionManager {
             Ok(mut stream) => {
                 let msg = message::build(MsgType::Ping, self.addr, None, None);
                 let result = thread::spawn(move || stream.write(msg.as_bytes()));
-                match result.join() {
-                    Ok(_) => true,
-                    Err(_) => false,
-                }
+                result.join().is_ok()
             }
             Err(_) => false,
         }
@@ -358,7 +352,7 @@ impl ConnectionManager4Edge {
         let mut stream = TcpStream::connect(node_addr).unwrap();
         let msg = message::build(MsgType::AddAsEdge, self.addr, None, None);
         thread::spawn(move || {
-            stream.write(msg.as_bytes()).unwrap();
+            stream.write_all(msg.as_bytes()).unwrap();
         });
     }
 
@@ -372,12 +366,12 @@ impl ConnectionManager4Edge {
         message::build(msg_type, self.addr, new_core_set, new_transaction)
     }
 
-    fn send(&mut self, peer: &SocketAddr, msg: &String) -> Result<(), Result<(), ()>> {
+    fn send(&mut self, peer: &SocketAddr, msg: String) -> Result<(), Result<(), ()>> {
         match TcpStream::connect(peer) {
             Ok(mut stream) => {
                 let msg = msg.clone();
                 thread::spawn(move || {
-                    stream.write(msg.as_bytes()).unwrap();
+                    stream.write_all(msg.as_bytes()).unwrap();
                 });
                 Ok(())
             }
@@ -385,7 +379,7 @@ impl ConnectionManager4Edge {
                 eprintln!("Connection failed for peer : {}", peer);
                 self.core_node_set.lock().unwrap().remove(peer); // FIXME: connection_managerに同じ処理
                 eprintln!("Trying to connect into P2P network ...");
-                if self.core_node_set.lock().unwrap().get_list().len() != 0 {
+                if !self.core_node_set.lock().unwrap().get_list().is_empty() {
                     self.my_core_addr = self.core_node_set.lock().unwrap().get_top_peer();
                     self.connect_to_core_node();
                     Err(Ok(()))
@@ -399,7 +393,7 @@ impl ConnectionManager4Edge {
 
     pub fn send_msg(&mut self, peer: &SocketAddr, msg: String) {
         println!("Sending ... {}", msg);
-        match self.send(peer, &msg) {
+        match self.send(peer, msg.clone()) {
             Ok(_) => {}
             Err(Ok(_)) => {
                 let my_core_addr = self.my_core_addr;
@@ -431,7 +425,7 @@ impl ConnectionManager4Edge {
     }
 
     /// Process according to the received message.
-    fn handle_message(&mut self, data: &String) {
+    fn handle_message(&mut self, data: &str) {
         match message::parse(data) {
             Ok(msg) => {
                 println!("Connected by .. ({})", msg.my_addr);
@@ -468,7 +462,7 @@ impl ConnectionManager4Edge {
     fn send_ping(&mut self) {
         let msg = message::build(MsgType::Ping, self.addr, None, None);
         let my_core_addr = self.my_core_addr;
-        match self.send(&my_core_addr, &msg) {
+        match self.send(&my_core_addr, msg) {
             Ok(_) => {}
             Err(Ok(_)) => {}
             Err(Err(_)) => return,
