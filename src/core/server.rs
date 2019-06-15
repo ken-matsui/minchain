@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use blockchain::block::Block;
 use blockchain::blockchain::Blockchain;
-use core::state::{State, get_my_addr};
+use core::state::{get_my_addr, State};
 use p2p::connection_manager::ConnectionManager;
 use transaction::pool::ToVecString;
 

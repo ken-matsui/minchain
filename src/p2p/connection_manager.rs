@@ -152,7 +152,7 @@ impl ConnectionManager {
         &self,
         msg_type: MsgType,
         new_core_set: Option<HashSet<SocketAddr>>,
-        new_transaction: Option<Transaction>
+        new_transaction: Option<Transaction>,
     ) -> String {
         message::build(msg_type, self.addr, new_core_set, new_transaction)
     }
@@ -178,7 +178,7 @@ impl ConnectionManager {
                         let core_node_set = self.core_node_set.lock().unwrap().get_list();
                         let m = self.build_message(MsgType::CoreList, Some(core_node_set), None);
                         self.send_msg_to_all_peer(m);
-                    },
+                    }
                     MsgType::Ping => {}
                     MsgType::RequestCoreList => {
                         println!("List for Core nodes was requested!!");
@@ -221,7 +221,7 @@ impl ConnectionManager {
                             None => {}
                         };
 
-                        if !self.is_in_core_set(&msg.my_addr)  {
+                        if !self.is_in_core_set(&msg.my_addr) {
                             self.tp
                                 .lock()
                                 .unwrap()
@@ -367,7 +367,7 @@ impl ConnectionManager4Edge {
         &self,
         msg_type: MsgType,
         new_core_set: Option<HashSet<SocketAddr>>,
-        new_transaction: Option<Transaction>
+        new_transaction: Option<Transaction>,
     ) -> String {
         message::build(msg_type, self.addr, new_core_set, new_transaction)
     }

@@ -35,7 +35,7 @@ fn wait_for_ctlc() {
     ctrlc::set_handler(move || {
         r.store(false, Ordering::SeqCst);
     })
-        .expect("Error setting Ctrl-C handler");
+    .expect("Error setting Ctrl-C handler");
     while running.load(Ordering::SeqCst) {}
     println!("Interrupted by user. Exiting ...");
 }
@@ -43,7 +43,7 @@ fn wait_for_ctlc() {
 fn generate_block_with_tp(
     tp: Arc<Mutex<TransactionPool>>,
     bc: Blockchain,
-    prev_block_hash: String
+    prev_block_hash: String,
 ) {
     let mut bc = bc;
     let mut prev_block_hash = prev_block_hash;

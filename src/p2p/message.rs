@@ -44,7 +44,7 @@ impl Message {
         msg_type: MsgType,
         my_addr: SocketAddr,
         new_core_set: Option<HashSet<SocketAddr>>,
-        new_transaction: Option<Transaction>
+        new_transaction: Option<Transaction>,
     ) -> Message {
         Message {
             protocol: PROTOCOL_NAME.to_string(),
@@ -61,7 +61,7 @@ pub fn build(
     msg_type: MsgType,
     my_addr: SocketAddr,
     new_core_set: Option<HashSet<SocketAddr>>,
-    new_transaction: Option<Transaction>
+    new_transaction: Option<Transaction>,
 ) -> String {
     let msg = Message::new(msg_type, my_addr, new_core_set, new_transaction);
     serde_json::to_string(&msg).unwrap()

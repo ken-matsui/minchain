@@ -31,7 +31,7 @@ pub trait ToVecString {
 
 impl<T> ToVecString for Vec<T>
 where
-    T: ToString + Serialize
+    T: ToString + Serialize,
 {
     fn to_vec_string(&self) -> Vec<String> {
         self.into_iter().map(|x| x.to_string()).collect()
