@@ -13,12 +13,6 @@ jobs:
       - run:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
-      - run:
-          name: Calculate dependencies
-          command: cargo generate-lockfile
-      - restore_cache:
-          keys:
-            - v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
       - persist_to_workspace:
           root: .
           paths: .
@@ -37,9 +31,6 @@ jobs:
       - run:
           name: Run clippy
           command: cargo clippy -- -D warnings
-      - persist_to_workspace:
-          root: .
-          paths: .
 
   build:
     executor: default
@@ -49,9 +40,6 @@ jobs:
       - run:
           name: Build all targets
           command: cargo build --all --all-targets
-      - persist_to_workspace:
-          root: .
-          paths: .
 
   test:
     executor: default
@@ -61,22 +49,6 @@ jobs:
       - run:
           name: Run all tests
           command: cargo test --all
-      - persist_to_workspace:
-          root: .
-          paths: .
-
-  finalize:
-    executor: default
-    steps:
-      - attach_workspace:
-          at: .
-      - save_cache:
-          paths:
-            - /usr/local/cargo/registry
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
-          key: v4-cargo-cache-{{ arch }}-{{ checksum "Cargo.lock" }}
 
 workflows:
   version: 2
@@ -92,8 +64,3 @@ workflows:
       - test:
           requires:
             - checkout_code
-      - finalize:
-          requires:
-            - lint
-            - build
-            - test
