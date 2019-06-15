@@ -10,8 +10,8 @@ use transaction::pool::Transaction;
 use self::semver::Version;
 use self::serde::{Deserialize, Serialize};
 
-const PROTOCOL_NAME: &'static str = "mincoin_protocol";
-const PROTOCOL_VERSION: &'static str = "0.1.0";
+const PROTOCOL_NAME: &str = "mincoin_protocol";
+const PROTOCOL_VERSION: &str = "0.1.0";
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub enum MsgType {

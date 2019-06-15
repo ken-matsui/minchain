@@ -297,7 +297,7 @@ impl ConnectionManager {
 
 impl Drop for ConnectionManager {
     /// Close socket.
-    fn drop(&mut self) -> () {
+    fn drop(&mut self) {
         // connection_close
         // Send a leave request.
         println!("Closing connection ...");
@@ -484,7 +484,7 @@ impl ConnectionManager4Edge {
 
 impl Drop for ConnectionManager4Edge {
     /// Close socket. (Auto)
-    fn drop(&mut self) -> () {
+    fn drop(&mut self) {
         // connection_close
         println!("Finishing ConnectionManager4Edge ...");
     }

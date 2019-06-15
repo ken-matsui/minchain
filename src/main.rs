@@ -14,7 +14,7 @@ use std::thread;
 use std::time::Duration;
 
 use blockchain::block::Block;
-use blockchain::blockchain::Blockchain;
+use blockchain::chain::Blockchain;
 use core::client::Client;
 use core::server::{Overload, Server};
 use p2p::message::MsgType;

@@ -3,7 +3,7 @@ use std::thread;
 use std::time::Duration;
 
 use blockchain::block::Block;
-use blockchain::blockchain::Blockchain;
+use blockchain::chain::Blockchain;
 use core::state::{get_my_addr, State};
 use p2p::connection_manager::ConnectionManager;
 use transaction::pool::ToVecString;
@@ -119,7 +119,7 @@ impl Server {
 }
 
 impl Drop for Server {
-    fn drop(&mut self) -> () {
+    fn drop(&mut self) {
         // shutdown_server
         self.server_state = State::ShuttingDown;
         println!("Shutdown server ...");

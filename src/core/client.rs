@@ -44,7 +44,7 @@ impl Client {
 }
 
 impl Drop for Client {
-    fn drop(&mut self) -> () {
+    fn drop(&mut self) {
         // shutdown_server
         self.server_state = State::ShuttingDown;
         println!("Shutdown edge node ...");

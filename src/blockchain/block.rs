@@ -14,8 +14,7 @@ pub struct Block {
     nonce: Option<u128>,
 }
 
-const GENESIS_TXN: &'static str =
-    "ad9b477b42b22cdf18b1335603d07378ace83561d8398fbfc8de94196c65d806";
+const GENESIS_TXN: &str = "ad9b477b42b22cdf18b1335603d07378ace83561d8398fbfc8de94196c65d806";
 
 impl Block {
     /// Create a genesis block.
