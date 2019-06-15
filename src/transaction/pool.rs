@@ -1,6 +1,6 @@
 extern crate serde;
 
-use self::serde::{Serialize, Deserialize};
+use self::serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct Transaction {
@@ -11,7 +11,11 @@ pub struct Transaction {
 
 impl Transaction {
     pub fn new(sender: String, recipient: String, value: i32) -> Transaction {
-        Transaction { sender, recipient, value, }
+        Transaction {
+            sender,
+            recipient,
+            value,
+        }
     }
 }
 
@@ -25,10 +29,12 @@ pub trait ToVecString {
     fn to_vec_string(&self) -> Vec<String>;
 }
 
-impl<T> ToVecString for Vec<T> where
-    T: ToString + Serialize {
+impl<T> ToVecString for Vec<T>
+where
+    T: ToString + Serialize,
+{
     fn to_vec_string(&self) -> Vec<String> {
-        self.into_iter().map(|x| x.to_string()).collect()
+        self.iter().map(|x| x.to_string()).collect()
     }
 }
 
@@ -59,7 +65,7 @@ impl TransactionPool {
     }
 
     pub fn get_stored_transactions(&self) -> Option<Vec<Transaction>> {
-        if self.transactions.len() > 0 {
+        if !self.transactions.is_empty() {
             Some(self.transactions.clone())
         } else {
             println!("Currently, it seems transaction pool is empty ...");

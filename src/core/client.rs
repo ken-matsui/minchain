@@ -1,6 +1,6 @@
-use std::net::{ToSocketAddrs, SocketAddr};
+use std::net::{SocketAddr, ToSocketAddrs};
 
-use core::state::{State, get_my_addr};
+use core::state::{get_my_addr, State};
 use p2p::connection_manager::ConnectionManager4Edge;
 use p2p::message::MsgType;
 use transaction::pool::Transaction;
@@ -44,7 +44,8 @@ impl Client {
 }
 
 impl Drop for Client {
-    fn drop(&mut self) -> () { // shutdown_server
+    fn drop(&mut self) {
+        // shutdown_server
         self.server_state = State::ShuttingDown;
         println!("Shutdown edge node ...");
     }

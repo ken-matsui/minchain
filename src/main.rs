@@ -8,17 +8,17 @@ mod p2p;
 mod transaction;
 
 use std::env;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, Ordering};
 
-use core::server::{Overload, Server};
-use core::client::Client;
-use transaction::pool::{Transaction, TransactionPool, ToVecString};
-use p2p::message::MsgType;
 use blockchain::block::Block;
-use blockchain::blockchain::Blockchain;
+use blockchain::chain::Blockchain;
+use core::client::Client;
+use core::server::{Overload, Server};
+use p2p::message::MsgType;
+use transaction::pool::{ToVecString, Transaction, TransactionPool};
 
 const CHECK_INTERVAL: Duration = Duration::from_secs(10);
 static mut FLAG_STOP_BLOCK_BUILD: bool = false;
@@ -34,12 +34,17 @@ fn wait_for_ctlc() {
     let r = running.clone();
     ctrlc::set_handler(move || {
         r.store(false, Ordering::SeqCst);
-    }).expect("Error setting Ctrl-C handler");
+    })
+    .expect("Error setting Ctrl-C handler");
     while running.load(Ordering::SeqCst) {}
     println!("Interrupted by user. Exiting ...");
 }
 
-fn generate_block_with_tp(tp: Arc<Mutex<TransactionPool>>, bc: Blockchain, prev_block_hash: String) {
+fn generate_block_with_tp(
+    tp: Arc<Mutex<TransactionPool>>,
+    bc: Blockchain,
+    prev_block_hash: String,
+) {
     let mut bc = bc;
     let mut prev_block_hash = prev_block_hash;
 
@@ -53,7 +58,7 @@ fn generate_block_with_tp(tp: Arc<Mutex<TransactionPool>>, bc: Blockchain, prev_
             prev_block_hash = bc.get_hash(&new_block);
             // ブロック生成に成功したらTransaction Poolはクリアする
             tp_guard.clear_my_transactions(result_len);
-        },
+        }
         None => println!("Transaction Pool is empty ..."),
     };
 

@@ -1,4 +1,4 @@
-use std::sync::{Mutex, Arc};
+use std::sync::{Arc, Mutex};
 
 use blockchain::block::Block;
 use crypt::sha::get_double_sha256;
@@ -22,20 +22,18 @@ impl Blockchain {
         self.chain.lock().unwrap().push(block);
     }
 
+    #[allow(dead_code)]
     pub fn is_valid(&self, chain: Vec<Block>) -> bool {
-        self.chain
-            .lock()
-            .unwrap()
-            [1..]
+        self.chain.lock().unwrap()[1..]
             .to_vec()
             .into_iter()
             .enumerate()
-            .find(move |(i, x): &(usize, Block)| {
-                self.get_hash(&chain[*i]) == x.clone().previous_block_hash.unwrap()
+            .any(move |(i, x): (usize, Block)| {
+                self.get_hash(&chain[i]) == x.previous_block_hash.unwrap()
             })
-            .is_some()
     }
 
+    #[allow(dead_code)]
     pub fn is_invalid(&self, chain: Vec<Block>) -> bool {
         !self.is_valid(chain)
     }

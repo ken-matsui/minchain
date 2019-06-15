@@ -7,7 +7,7 @@ pub struct ProtocolHandler;
 impl ProtocolHandler {
     pub fn new() -> ProtocolHandler {
         println!("Initializing MyProtocolMessageHandler...");
-        ProtocolHandler{}
+        ProtocolHandler {}
     }
 
     pub fn handle_message(&self, msg: Message) {
