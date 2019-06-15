@@ -6,6 +6,7 @@ use core::state::{State, get_my_addr};
 use p2p::connection_manager::ConnectionManager;
 use blockchain::block::Block;
 use blockchain::blockchain::Blockchain;
+use transaction::pool::ToVecString;
 
 const CHECK_INTERVAL: Duration = Duration::from_secs(10);
 
@@ -96,7 +97,7 @@ impl Server {
             Some(result) => {
                 let result_len = result.len();
 
-                let new_block = Block::new(result, self.prev_block_hash.clone());
+                let new_block = Block::new(result.to_vec_string(), Some(self.prev_block_hash.clone()));
                 self.bc.set_new_block(new_block.clone());
                 self.prev_block_hash = self.bc.get_hash(&new_block);
                 // ブロック生成に成功したらTransaction Poolはクリアする

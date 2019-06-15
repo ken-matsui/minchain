@@ -15,6 +15,23 @@ impl Transaction {
     }
 }
 
+impl std::string::ToString for Transaction {
+    fn to_string(&self) -> String {
+        serde_json::to_string(self).unwrap()
+    }
+}
+
+pub trait ToVecString {
+    fn to_vec_string(&self) -> Vec<String>;
+}
+
+impl<T> ToVecString for Vec<T> where
+    T: ToString + Serialize {
+    fn to_vec_string(&self) -> Vec<String> {
+        self.into_iter().map(|x| x.to_string()).collect()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct TransactionPool {
     transactions: Vec<Transaction>,
