@@ -35,7 +35,8 @@ jobs:
           name: Run rust format
           command: cargo fmt -- --check
       - run:
-          name: cargo clippy -- -D warnings
+          name: Run clippy
+          command: cargo clippy -- -D warnings
       - persist_to_workspace:
           root: .
           paths: .
