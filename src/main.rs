@@ -3,6 +3,7 @@ extern crate serde;
 
 mod blockchain;
 mod core;
+mod crypt;
 mod p2p;
 mod transaction;
 
