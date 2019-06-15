@@ -2,11 +2,11 @@ extern crate chrono;
 extern crate serde;
 
 use self::chrono::Utc;
-use self::serde::{Serialize, Deserialize};
+use self::serde::Serialize;
 
 use crypt::sha::get_double_sha256;
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Debug)]
 pub struct Block {
     timestamp: i64,
     transactions: Vec<String>,
