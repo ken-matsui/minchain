@@ -1,0 +1,23 @@
+name: Rust
+
+on: [push, pull_request]
+
+jobs:
+  build:
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-18.04]
+
+    steps:
+    - uses: actions/checkout@master
+    - name: Lint
+      run: |
+        rustup component add clippy rustfmt
+        cargo fmt -- --check
+        cargo clippy -- -D warnings
+    - name: Build
+      run: cargo build --all --all-targets
+    - name: Run tests
+      run: cargo test --all
