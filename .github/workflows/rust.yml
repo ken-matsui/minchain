@@ -12,7 +12,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@master
+    - name: Lint
+      run: |
+        rustup component add clippy rustfmt
+        cargo fmt -- --check
+        cargo clippy -- -D warnings
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --all --all-targets
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo test --all
