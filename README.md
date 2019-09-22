@@ -1,5 +1,3 @@
-# mincoin
-
-[![CircleCI](https://circleci.com/gh/matken11235/mincoin.svg?style=svg)](https://circleci.com/gh/matken11235/mincoin)
+# mincoin ![GitHub Actions](https://github.com/matken11235/mincoin/workflows/Rust/badge.svg)
 
 A minimally cryptocurrency implemented from scratch
