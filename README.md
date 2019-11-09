@@ -1,3 +1,3 @@
-# mincoin ![GitHub Actions](https://github.com/matken11235/mincoin/workflows/Rust/badge.svg)
+# mincoin [![GitHub Actions](https://github.com/matken11235/mincoin/workflows/Rust/badge.svg)](https://github.com/matken11235/mincoin/actions?query=workflow%3ARust)
 
 A minimally cryptocurrency implemented from scratch
