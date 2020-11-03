@@ -45,7 +45,7 @@ impl ConnectionManager {
 
     /// Start standby. (for ServerCore)
     pub fn start(&mut self) {
-        let self_clone = self.clone();
+        let mut self_clone = self.clone();
         {
             // Reference: https://stackoverflow.com/a/33455247
             let self_clone = self_clone.clone();
@@ -53,13 +53,10 @@ impl ConnectionManager {
                 self_clone.wait_for_access();
             });
         }
-        {
-            let mut self_clone = self_clone.clone();
-            thread::spawn(move || {
-                thread::sleep(PING_INTERVAL);
-                self_clone.check_peers_connection();
-            });
-        }
+        thread::spawn(move || {
+            thread::sleep(PING_INTERVAL);
+            self_clone.check_peers_connection();
+        });
     }
 
     /// Connect to a known Core node specified by the user. (for ServerCore)
@@ -327,7 +324,7 @@ impl ConnectionManager4Edge {
     /// Start standby. (for ClientCore)
     pub fn start(&mut self) {
         // FIXME: connection_managerと同じ内容
-        let self_clone = self.clone();
+        let mut self_clone = self.clone();
         {
             // Reference: https://stackoverflow.com/a/33455247
             let self_clone = self_clone.clone();
@@ -335,13 +332,10 @@ impl ConnectionManager4Edge {
                 self_clone.wait_for_access();
             });
         }
-        {
-            let mut self_clone = self_clone.clone();
-            thread::spawn(move || {
-                thread::sleep(PING_INTERVAL);
-                self_clone.send_ping();
-            });
-        }
+        thread::spawn(move || {
+            thread::sleep(PING_INTERVAL);
+            self_clone.send_ping();
+        });
     }
 
     /// Connect to a known Core node specified by the user. (for ClientCore)
@@ -371,7 +365,6 @@ impl ConnectionManager4Edge {
     fn send(&mut self, peer: &SocketAddr, msg: String) -> Result<(), Result<(), ()>> {
         match TcpStream::connect(peer) {
             Ok(mut stream) => {
-                let msg = msg.clone();
                 thread::spawn(move || {
                     stream.write_all(msg.as_bytes()).unwrap();
                 });

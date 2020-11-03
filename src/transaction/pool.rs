@@ -60,7 +60,7 @@ impl TransactionPool {
         if index <= self.transactions.len() {
             let new_txns = self.transactions[index..].to_vec();
             println!("transaction is now refreshed ... ({:#?})", new_txns);
-            self.transactions = new_txns.clone();
+            self.transactions = new_txns;
         };
     }
 

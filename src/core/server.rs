@@ -20,11 +20,11 @@ pub struct Server {
 }
 
 pub trait Overload<T> {
-    fn new(_: T) -> Server;
+    fn new(_: T) -> Self;
 }
 
 impl Overload<u16> for Server {
-    fn new(my_port: u16) -> Server {
+    fn new(my_port: u16) -> Self {
         println!("Initializing server ...");
         let my_addr = get_my_addr(my_port);
         println!("Server IP address is set to ... {}", my_addr);
@@ -43,7 +43,7 @@ impl Overload<u16> for Server {
 }
 
 impl Overload<(u16, &'static str)> for Server {
-    fn new(args: (u16, &'static str)) -> Server {
+    fn new(args: (u16, &'static str)) -> Self {
         let my_port = args.0;
         let node_addr = args.1.to_socket_addrs().unwrap().next().unwrap();
 
