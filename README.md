@@ -4,7 +4,11 @@ A minimal cryptocurrency implemented from scratch
 
 ## How to Use
 
-Run blockchain with mining
+See this demo:
+
+![Demo](https://user-images.githubusercontent.com/26405363/97986140-a1f46c80-1e1c-11eb-9b00-e0a02942f64d.gif)
+
+Run blockchain with mining.
 
 ```
 $ cargo run blockchain
