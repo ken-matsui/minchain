@@ -143,7 +143,6 @@ fn main() {
         println!("Thread for generate_block_with_tp started!");
         {
             let tp = tp.clone();
-            let bc = bc.clone();
             thread::spawn(move || {
                 thread::sleep(CHECK_INTERVAL);
                 generate_block_with_tp(tp, bc, prev_block_hash);
