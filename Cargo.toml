@@ -7,6 +7,6 @@ authors = ["matken11235 <26405363+matken11235@users.noreply.github.com>"]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 semver = "0.11.0"
-ctrlc = { version = "3.0", features = ["termination"] }
+ctrlc = { version = "3.1", features = ["termination"] }
 chrono = "0.4.6"
 crypto-hash = "0.3.4"
