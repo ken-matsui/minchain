@@ -5,7 +5,7 @@ use std::time::Duration;
 use blockchain::block::Block;
 use blockchain::chain::Blockchain;
 use core::state::{get_my_addr, State};
-use p2p::connection_manager::ConnectionManager;
+use p2p::connection_manager::{ConnectionManager, Manager};
 use transaction::pool::ToVecString;
 
 const CHECK_INTERVAL: Duration = Duration::from_secs(10);
@@ -67,7 +67,7 @@ impl Overload<(u16, &'static str)> for Server {
 impl Server {
     pub fn start(&mut self) {
         self.server_state = State::Standby;
-        self.cm.start();
+        self.cm.start(self.cm.addr);
 
         let mut self_clone = self.clone();
         thread::spawn(move || {

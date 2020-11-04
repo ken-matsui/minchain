@@ -1,7 +1,7 @@
 use std::net::{SocketAddr, ToSocketAddrs};
 
 use core::state::{get_my_addr, State};
-use p2p::connection_manager::ConnectionManager4Edge;
+use p2p::connection_manager::{ConnectionManager4Edge, Manager};
 use p2p::message::MsgType;
 use transaction::pool::Transaction;
 
@@ -27,7 +27,7 @@ impl Client {
 
     pub fn start(&mut self) {
         self.server_state = State::Active;
-        self.cm.start();
+        self.cm.start(self.cm.addr);
         self.cm.connect_to_core_node();
     }
 
@@ -37,7 +37,9 @@ impl Client {
     }
 
     pub fn send_message_to_my_core_node(&mut self, msg_type: MsgType, msg: Transaction) {
-        let msg_txt = self.cm.build_message(msg_type, None, Some(msg));
+        let msg_txt = self
+            .cm
+            .build_message(msg_type, self.cm.addr, None, Some(msg));
         println!("{}", msg_txt);
         self.cm.send_msg(&self.my_core_addr, msg_txt);
     }

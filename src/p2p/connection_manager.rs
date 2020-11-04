@@ -18,9 +18,79 @@ fn u8_to_str(content: &[u8]) -> String {
     from_utf8(&content.to_vec()).unwrap().to_string()
 }
 
+#[allow(drop_bounds)]
+pub trait Manager: Drop + Clone {
+    /// Start standby.
+    fn start(&mut self, my_addr: SocketAddr)
+    where
+        Self: 'static + Send,
+    {
+        let mut self_clone = self.clone();
+        {
+            // Reference: https://stackoverflow.com/a/33455247
+            let self_clone = self_clone.clone();
+            thread::spawn(move || {
+                self_clone.wait_for_access(my_addr);
+            });
+        }
+        thread::spawn(move || {
+            thread::sleep(PING_INTERVAL);
+            self_clone.send_ping();
+        });
+    }
+
+    /// 指定したCoreノードへ接続要求メッセージを送信する
+    fn connect_to_p2pnw(&self, my_addr: SocketAddr, node_addr: SocketAddr, msg_type: MsgType) {
+        let mut stream = TcpStream::connect(node_addr).unwrap();
+        let msg = message::build(msg_type, my_addr, None, None);
+        thread::spawn(move || {
+            stream.write_all(msg.as_bytes()).unwrap();
+        });
+    }
+
+    /// Always listen during server startup.
+    fn wait_for_access(&self, my_addr: SocketAddr)
+    where
+        Self: 'static + Send,
+    {
+        let listener = TcpListener::bind(my_addr).unwrap();
+        for stream in listener.incoming() {
+            match stream {
+                Ok(mut stream) => {
+                    let mut self_clone = self.clone();
+                    thread::spawn(move || {
+                        let mut b = [0; 1024];
+                        let n = stream.read(&mut b).unwrap();
+                        self_clone.handle_message(&u8_to_str(&b[0..n]));
+                    });
+                }
+                Err(e) => {
+                    eprintln!("An error occurred while accepting a connection: {}", e);
+                    continue;
+                }
+            };
+        }
+    }
+
+    fn build_message(
+        &self,
+        msg_type: MsgType,
+        my_addr: SocketAddr,
+        new_core_set: Option<HashSet<SocketAddr>>,
+        new_transaction: Option<Transaction>,
+    ) -> String {
+        message::build(msg_type, my_addr, new_core_set, new_transaction)
+    }
+
+    fn handle_message(&mut self, data: &str);
+    fn send_msg(&mut self, peer: &SocketAddr, msg: String);
+    fn send_ping(&mut self);
+}
+
+/// For ServerCore
 #[derive(Clone)]
 pub struct ConnectionManager {
-    addr: SocketAddr,
+    pub addr: SocketAddr, // FIXME: pub
     my_c_addr: Option<SocketAddr>,
     core_node_set: Arc<Mutex<CoreNodeList>>,
     edge_node_set: Arc<Mutex<EdgeNodeList>>,
@@ -40,50 +110,6 @@ impl ConnectionManager {
             edge_node_set: Arc::new(Mutex::new(EdgeNodeList::new())),
             ph: ProtocolHandler::new(),
             tp: Arc::new(Mutex::new(TransactionPool::new())),
-        }
-    }
-
-    /// Start standby. (for ServerCore)
-    pub fn start(&mut self) {
-        let mut self_clone = self.clone();
-        {
-            // Reference: https://stackoverflow.com/a/33455247
-            let self_clone = self_clone.clone();
-            thread::spawn(move || {
-                self_clone.wait_for_access();
-            });
-        }
-        thread::spawn(move || {
-            thread::sleep(PING_INTERVAL);
-            self_clone.check_peers_connection();
-        });
-    }
-
-    /// Connect to a known Core node specified by the user. (for ServerCore)
-    pub fn join_network(&mut self, node_addr: SocketAddr) {
-        self.my_c_addr = Some(node_addr);
-        self.connect_to_p2pnw(node_addr);
-    }
-
-    fn connect_to_p2pnw(&self, node_addr: SocketAddr) {
-        let mut stream = TcpStream::connect(node_addr).unwrap();
-        let msg = message::build(MsgType::Add, self.addr, None, None);
-        thread::spawn(move || {
-            stream.write_all(msg.as_bytes()).unwrap();
-        });
-    }
-
-    pub fn send_msg(&mut self, peer: &SocketAddr, msg: String) {
-        match TcpStream::connect(peer) {
-            Ok(mut stream) => {
-                thread::spawn(move || {
-                    stream.write_all(msg.as_bytes()).unwrap();
-                });
-            }
-            Err(_) => {
-                eprintln!("Connection failed for peer : {}", *peer);
-                self.remove_peer(peer);
-            }
         }
     }
 
@@ -118,42 +144,31 @@ impl ConnectionManager {
         self.edge_node_set.lock().unwrap().remove(edge);
     }
 
-    /// Always listen during server startup.
-    fn wait_for_access(&self) {
-        let listener = TcpListener::bind(self.addr).unwrap();
-        for stream in listener.incoming() {
-            match stream {
-                Ok(mut stream) => {
-                    let mut self_clone = self.clone();
-                    thread::spawn(move || {
-                        let mut b = [0; 1024];
-                        let n = stream.read(&mut b).unwrap();
-                        self_clone.handle_message(&u8_to_str(&b[0..n]));
-                    });
-                }
-                Err(e) => {
-                    eprintln!("An error occurred while accepting a connection: {}", e);
-                    continue;
-                }
-            };
-        }
-    }
-
     /// 与えられたnodeがCoreノードのリストに含まれているかどうかをチェックする
     fn is_in_core_set(&self, peer: &SocketAddr) -> bool {
         self.core_node_set.lock().unwrap().has_this_peer(peer)
     }
 
-    // FIXME: ConnectionManager4Edgeと同じ
-    pub fn build_message(
-        &self,
-        msg_type: MsgType,
-        new_core_set: Option<HashSet<SocketAddr>>,
-        new_transaction: Option<Transaction>,
-    ) -> String {
-        message::build(msg_type, self.addr, new_core_set, new_transaction)
+    /// Connect to a known Core node specified by the user. (for ServerCore)
+    pub fn join_network(&mut self, node_addr: SocketAddr) {
+        self.my_c_addr = Some(node_addr);
+        self.connect_to_p2pnw(self.addr, node_addr, MsgType::Add);
     }
 
+    /// Send a message to confirm valid nodes.
+    fn is_alive(&self, target: &SocketAddr) -> bool {
+        match TcpStream::connect(target) {
+            Ok(mut stream) => {
+                let msg = message::build(MsgType::Ping, self.addr, None, None);
+                let result = thread::spawn(move || stream.write(msg.as_bytes()));
+                result.join().is_ok()
+            }
+            Err(_) => false,
+        }
+    }
+}
+
+impl Manager for ConnectionManager {
     fn handle_message(&mut self, data: &str) {
         match message::parse(data) {
             Ok(msg) => {
@@ -164,8 +179,12 @@ impl ConnectionManager {
                         self.add_peer(&msg.my_addr);
                         if self.addr != msg.my_addr {
                             let core_node_set = self.core_node_set.lock().unwrap().get_list();
-                            let m =
-                                self.build_message(MsgType::CoreList, Some(core_node_set), None);
+                            let m = self.build_message(
+                                MsgType::CoreList,
+                                self.addr,
+                                Some(core_node_set),
+                                None,
+                            );
                             self.send_msg_to_all_peer(m);
                         };
                     }
@@ -173,20 +192,35 @@ impl ConnectionManager {
                         println!("REMOVE request was received!! from: ({})", msg.my_addr);
                         self.remove_peer(&msg.my_addr);
                         let core_node_set = self.core_node_set.lock().unwrap().get_list();
-                        let m = self.build_message(MsgType::CoreList, Some(core_node_set), None);
+                        let m = self.build_message(
+                            MsgType::CoreList,
+                            self.addr,
+                            Some(core_node_set),
+                            None,
+                        );
                         self.send_msg_to_all_peer(m);
                     }
                     MsgType::Ping => {}
                     MsgType::RequestCoreList => {
                         println!("List for Core nodes was requested!!");
                         let core_node_set = self.core_node_set.lock().unwrap().get_list();
-                        let m = self.build_message(MsgType::CoreList, Some(core_node_set), None);
+                        let m = self.build_message(
+                            MsgType::CoreList,
+                            self.addr,
+                            Some(core_node_set),
+                            None,
+                        );
                         self.send_msg(&msg.my_addr, m);
                     }
                     MsgType::AddAsEdge => {
                         self.add_edge_node(&msg.my_addr);
                         let core_node_set = self.core_node_set.lock().unwrap().get_list();
-                        let m = self.build_message(MsgType::CoreList, Some(core_node_set), None);
+                        let m = self.build_message(
+                            MsgType::CoreList,
+                            self.addr,
+                            Some(core_node_set),
+                            None,
+                        );
                         self.send_msg(&msg.my_addr, m);
                     }
                     MsgType::RemoveEdge => {
@@ -222,8 +256,12 @@ impl ConnectionManager {
                                 .lock()
                                 .unwrap()
                                 .set_new_transaction(new_transaction.clone());
-                            let new_message =
-                                self.build_message(MsgType::NewBlock, None, Some(new_transaction));
+                            let new_message = self.build_message(
+                                MsgType::NewBlock,
+                                self.addr,
+                                None,
+                                Some(new_transaction),
+                            );
                             self.send_msg_to_all_peer(new_message);
                         } else {
                             self.tp.lock().unwrap().set_new_transaction(new_transaction);
@@ -245,8 +283,22 @@ impl ConnectionManager {
         };
     }
 
+    fn send_msg(&mut self, peer: &SocketAddr, msg: String) {
+        match TcpStream::connect(peer) {
+            Ok(mut stream) => {
+                thread::spawn(move || {
+                    stream.write_all(msg.as_bytes()).unwrap();
+                });
+            }
+            Err(_) => {
+                eprintln!("Connection failed for peer : {}", *peer);
+                self.remove_peer(peer);
+            }
+        }
+    }
+
     /// Check all connected core nodes every PING_INTERVAL for survival.
-    fn check_peers_connection(&mut self) {
+    fn send_ping(&mut self) {
         let mut changed = false;
 
         let list = self.core_node_set.lock().unwrap().get_list();
@@ -264,27 +316,15 @@ impl ConnectionManager {
         if changed {
             // Notify with broadcast
             let core_node_set = self.core_node_set.lock().unwrap().get_list();
-            let msg = self.build_message(MsgType::CoreList, Some(core_node_set), None);
+            let msg = self.build_message(MsgType::CoreList, self.addr, Some(core_node_set), None);
             self.send_msg_to_all_peer(msg);
         }
 
         let mut self_clone = self.clone();
         thread::spawn(move || {
             thread::sleep(PING_INTERVAL);
-            self_clone.check_peers_connection();
+            self_clone.send_ping();
         });
-    }
-
-    /// Send a message to confirm valid nodes.
-    fn is_alive(&self, target: &SocketAddr) -> bool {
-        match TcpStream::connect(target) {
-            Ok(mut stream) => {
-                let msg = message::build(MsgType::Ping, self.addr, None, None);
-                let result = thread::spawn(move || stream.write(msg.as_bytes()));
-                result.join().is_ok()
-            }
-            Err(_) => false,
-        }
     }
 }
 
@@ -304,121 +344,15 @@ impl Drop for ConnectionManager {
     }
 }
 
+/// For ClientCore
 #[derive(Clone)]
 pub struct ConnectionManager4Edge {
-    addr: SocketAddr,
+    pub addr: SocketAddr, // FIXME:
     my_core_addr: SocketAddr,
     core_node_set: Arc<Mutex<CoreNodeList>>,
 }
 
-impl ConnectionManager4Edge {
-    pub fn new(self_addr: SocketAddr, my_core_addr: SocketAddr) -> ConnectionManager4Edge {
-        println!("Initializing ConnectionManager4Edge ...");
-        ConnectionManager4Edge {
-            addr: self_addr,
-            my_core_addr,
-            core_node_set: Arc::new(Mutex::new(CoreNodeList::new())),
-        }
-    }
-
-    /// Start standby. (for ClientCore)
-    pub fn start(&mut self) {
-        // FIXME: connection_managerと同じ内容
-        let mut self_clone = self.clone();
-        {
-            // Reference: https://stackoverflow.com/a/33455247
-            let self_clone = self_clone.clone();
-            thread::spawn(move || {
-                self_clone.wait_for_access();
-            });
-        }
-        thread::spawn(move || {
-            thread::sleep(PING_INTERVAL);
-            self_clone.send_ping();
-        });
-    }
-
-    /// Connect to a known Core node specified by the user. (for ClientCore)
-    pub fn connect_to_core_node(&mut self) {
-        self.connect_to_p2pnw(self.my_core_addr);
-    }
-
-    /// 指定したCoreノードへ接続要求メッセージを送信する
-    fn connect_to_p2pnw(&self, node_addr: SocketAddr) {
-        let mut stream = TcpStream::connect(node_addr).unwrap();
-        let msg = message::build(MsgType::AddAsEdge, self.addr, None, None);
-        thread::spawn(move || {
-            stream.write_all(msg.as_bytes()).unwrap();
-        });
-    }
-
-    // TODO: 同じのがある．
-    pub fn build_message(
-        &self,
-        msg_type: MsgType,
-        new_core_set: Option<HashSet<SocketAddr>>,
-        new_transaction: Option<Transaction>,
-    ) -> String {
-        message::build(msg_type, self.addr, new_core_set, new_transaction)
-    }
-
-    fn send(&mut self, peer: &SocketAddr, msg: String) -> Result<(), Result<(), ()>> {
-        match TcpStream::connect(peer) {
-            Ok(mut stream) => {
-                thread::spawn(move || {
-                    stream.write_all(msg.as_bytes()).unwrap();
-                });
-                Ok(())
-            }
-            Err(_) => {
-                eprintln!("Connection failed for peer : {}", peer);
-                self.core_node_set.lock().unwrap().remove(peer); // FIXME: connection_managerに同じ処理
-                eprintln!("Trying to connect into P2P network ...");
-                if !self.core_node_set.lock().unwrap().get_list().is_empty() {
-                    self.my_core_addr = self.core_node_set.lock().unwrap().get_top_peer();
-                    self.connect_to_core_node();
-                    Err(Ok(()))
-                } else {
-                    eprintln!("No core node found in our list ...");
-                    Err(Err(()))
-                }
-            }
-        }
-    }
-
-    pub fn send_msg(&mut self, peer: &SocketAddr, msg: String) {
-        println!("Sending ... {}", msg);
-        match self.send(peer, msg.clone()) {
-            Ok(_) => {}
-            Err(Ok(_)) => {
-                let my_core_addr = self.my_core_addr;
-                self.send_msg(&my_core_addr, msg);
-            }
-            Err(Err(_)) => {}
-        };
-    }
-
-    /// Open the server socket and shift to standby mode.
-    fn wait_for_access(&self) {
-        let listener = TcpListener::bind(self.addr).unwrap();
-        for stream in listener.incoming() {
-            match stream {
-                Ok(mut stream) => {
-                    let mut self_clone = self.clone();
-                    thread::spawn(move || {
-                        let mut b = [0; 1024];
-                        let n = stream.read(&mut b).unwrap();
-                        self_clone.handle_message(&u8_to_str(&b[0..n]));
-                    });
-                }
-                Err(e) => {
-                    eprintln!("An error occurred while accepting a connection: {}", e);
-                    continue;
-                }
-            };
-        }
-    }
-
+impl Manager for ConnectionManager4Edge {
     /// Process according to the received message.
     fn handle_message(&mut self, data: &str) {
         match message::parse(data) {
@@ -453,7 +387,18 @@ impl ConnectionManager4Edge {
         };
     }
 
-    /// Send a message to confirm valid nodes.
+    fn send_msg(&mut self, peer: &SocketAddr, msg: String) {
+        println!("Sending ... {}", msg);
+        match self.send(peer, msg.clone()) {
+            Ok(_) => {}
+            Err(Ok(_)) => {
+                let my_core_addr = self.my_core_addr;
+                self.send_msg(&my_core_addr, msg);
+            }
+            Err(Err(_)) => {}
+        };
+    }
+
     fn send_ping(&mut self) {
         let msg = message::build(MsgType::Ping, self.addr, None, None);
         let my_core_addr = self.my_core_addr;
@@ -468,6 +413,46 @@ impl ConnectionManager4Edge {
             thread::sleep(PING_INTERVAL);
             self_clone.send_ping();
         });
+    }
+}
+
+impl ConnectionManager4Edge {
+    pub fn new(self_addr: SocketAddr, my_core_addr: SocketAddr) -> ConnectionManager4Edge {
+        println!("Initializing ConnectionManager4Edge ...");
+        ConnectionManager4Edge {
+            addr: self_addr,
+            my_core_addr,
+            core_node_set: Arc::new(Mutex::new(CoreNodeList::new())),
+        }
+    }
+
+    /// Connect to a known Core node specified by the user. (for ClientCore)
+    pub fn connect_to_core_node(&mut self) {
+        self.connect_to_p2pnw(self.addr, self.my_core_addr, MsgType::AddAsEdge);
+    }
+
+    fn send(&mut self, peer: &SocketAddr, msg: String) -> Result<(), Result<(), ()>> {
+        match TcpStream::connect(peer) {
+            Ok(mut stream) => {
+                thread::spawn(move || {
+                    stream.write_all(msg.as_bytes()).unwrap();
+                });
+                Ok(())
+            }
+            Err(_) => {
+                eprintln!("Connection failed for peer : {}", peer);
+                self.core_node_set.lock().unwrap().remove(peer); // FIXME: connection_managerに同じ処理
+                eprintln!("Trying to connect into P2P network ...");
+                if !self.core_node_set.lock().unwrap().get_list().is_empty() {
+                    self.my_core_addr = self.core_node_set.lock().unwrap().get_top_peer();
+                    self.connect_to_core_node();
+                    Err(Ok(()))
+                } else {
+                    eprintln!("No core node found in our list ...");
+                    Err(Err(()))
+                }
+            }
+        }
     }
 }
 
