@@ -10,10 +10,10 @@ pub struct Transaction {
 }
 
 impl Transaction {
-    pub fn new(sender: String, recipient: String, value: i32) -> Transaction {
+    pub fn new(sender: impl Into<String>, recipient: impl Into<String>, value: i32) -> Transaction {
         Transaction {
-            sender,
-            recipient,
+            sender: sender.into(),
+            recipient: recipient.into(),
             value,
         }
     }

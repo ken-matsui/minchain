@@ -42,12 +42,9 @@ fn wait_for_ctlc() {
 
 fn generate_block_with_tp(
     tp: Arc<Mutex<TransactionPool>>,
-    bc: Blockchain,
-    prev_block_hash: String,
+    mut bc: Blockchain,
+    mut prev_block_hash: String,
 ) {
-    let mut bc = bc;
-    let mut prev_block_hash = prev_block_hash;
-
     let mut tp_guard = tp.lock().unwrap();
     match tp_guard.get_stored_transactions() {
         Some(result) => {
@@ -95,15 +92,15 @@ fn main() {
 
             thread::sleep(Duration::from_secs(10));
 
-            let transaction = Transaction::new("test4".to_string(), "test5".to_string(), 3);
+            let transaction = Transaction::new("test4", "test5", 3);
             my_p2p_client.send_message_to_my_core_node(MsgType::NewTransaction, transaction);
 
-            let transaction2 = Transaction::new("test6".to_string(), "test7".to_string(), 2);
+            let transaction2 = Transaction::new("test6", "test7", 2);
             my_p2p_client.send_message_to_my_core_node(MsgType::NewTransaction, transaction2);
 
             thread::sleep(Duration::from_secs(10));
 
-            let transaction3 = Transaction::new("test8".to_string(), "test9".to_string(), 10);
+            let transaction3 = Transaction::new("test8", "test9", 10);
             my_p2p_client.send_message_to_my_core_node(MsgType::NewTransaction, transaction3);
 
             wait_for_ctlc();
@@ -113,15 +110,15 @@ fn main() {
 
             thread::sleep(Duration::from_secs(10));
 
-            let transaction = Transaction::new("test1".to_string(), "test2".to_string(), 3);
+            let transaction = Transaction::new("test1", "test2", 3);
             my_p2p_client.send_message_to_my_core_node(MsgType::NewTransaction, transaction);
 
-            let transaction2 = Transaction::new("test1".to_string(), "test3".to_string(), 2);
+            let transaction2 = Transaction::new("test1", "test3", 2);
             my_p2p_client.send_message_to_my_core_node(MsgType::NewTransaction, transaction2);
 
             thread::sleep(Duration::from_secs(10));
 
-            let transaction3 = Transaction::new("test5".to_string(), "test6".to_string(), 10);
+            let transaction3 = Transaction::new("test5", "test6", 10);
             my_p2p_client.send_message_to_my_core_node(MsgType::NewTransaction, transaction3);
 
             wait_for_ctlc();
@@ -134,10 +131,10 @@ fn main() {
         let prev_block_hash = bc.get_hash(&my_genesis_block);
         println!("genesis_block_hash : {}", prev_block_hash);
 
-        let transaction = Transaction::new("test1".to_string(), "test2".to_string(), 3);
+        let transaction = Transaction::new("test1", "test2", 3);
         tp.lock().unwrap().set_new_transaction(transaction);
 
-        let transaction2 = Transaction::new("test1".to_string(), "test3".to_string(), 2);
+        let transaction2 = Transaction::new("test1", "test3", 2);
         tp.lock().unwrap().set_new_transaction(transaction2);
 
         println!("Thread for generate_block_with_tp started!");
@@ -150,7 +147,7 @@ fn main() {
         }
         thread::sleep(Duration::from_secs(20));
 
-        let transaction3 = Transaction::new("test5".to_string(), "test6".to_string(), 10);
+        let transaction3 = Transaction::new("test5", "test6", 10);
         tp.lock().unwrap().set_new_transaction(transaction3);
 
         thread::sleep(Duration::from_secs(30));
