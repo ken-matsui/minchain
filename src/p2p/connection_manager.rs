@@ -18,7 +18,7 @@ fn u8_to_str(content: &[u8]) -> String {
     from_utf8(&content.to_vec()).unwrap().to_string()
 }
 
-#[allow(drop_bounds)]
+#[allow(clippy::drop_bounds)]
 pub trait Manager: Drop + Clone {
     /// Start standby.
     fn start(&mut self, my_addr: SocketAddr)
