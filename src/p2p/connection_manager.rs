@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::str::from_utf8;
@@ -5,12 +6,10 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use p2p::message;
-use p2p::message::MsgType;
-use p2p::node_list::{CoreNodeList, EdgeNodeList, NodeList};
-use p2p::protocol_handler::ProtocolHandler;
-use std::collections::HashSet;
-use transaction::pool::{Transaction, TransactionPool};
+use crate::p2p::message;
+use crate::p2p::node_list::{CoreNodeList, EdgeNodeList, NodeList};
+use crate::p2p::protocol_handler::ProtocolHandler;
+use crate::{MsgType, Transaction, TransactionPool};
 
 const PING_INTERVAL: Duration = Duration::from_secs(10);
 

@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
-use blockchain::block::Block;
-use crypt::sha::get_double_sha256;
+use crate::crypt::sha::get_double_sha256;
+use crate::Block;
 
 #[derive(Clone, Debug)]
 pub struct Blockchain {

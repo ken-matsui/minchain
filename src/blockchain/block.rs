@@ -1,10 +1,7 @@
-extern crate chrono;
-extern crate serde;
+use chrono::Utc;
+use serde::Serialize;
 
-use self::chrono::Utc;
-use self::serde::Serialize;
-
-use crypt::sha::get_double_sha256;
+use crate::crypt::sha::get_double_sha256;
 
 #[derive(Clone, Serialize, Debug)]
 pub struct Block {

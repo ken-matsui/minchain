@@ -1,9 +1,8 @@
 use std::net::{SocketAddr, ToSocketAddrs};
 
-use core::state::{get_my_addr, State};
-use p2p::connection_manager::{ConnectionManager4Edge, Manager};
-use p2p::message::MsgType;
-use transaction::pool::Transaction;
+use crate::core::state::{get_my_addr, State};
+use crate::p2p::connection_manager::{ConnectionManager4Edge, Manager};
+use crate::{MsgType, Transaction};
 
 pub struct Client {
     server_state: State,

@@ -1,6 +1,4 @@
-extern crate serde;
-
-use self::serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct Transaction {
