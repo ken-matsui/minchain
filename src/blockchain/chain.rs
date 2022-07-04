@@ -5,6 +5,7 @@ use crypt::sha::get_double_sha256;
 
 #[derive(Clone, Debug)]
 pub struct Blockchain {
+    #[allow(dead_code)]
     genesis_block: Block,
     chain: Arc<Mutex<Vec<Block>>>,
 }
@@ -25,8 +26,8 @@ impl Blockchain {
     #[allow(dead_code)]
     pub fn is_valid(&self, chain: Vec<Block>) -> bool {
         self.chain.lock().unwrap()[1..]
-            .to_vec()
-            .into_iter()
+            .iter()
+            .cloned()
             .enumerate()
             .any(move |(i, x): (usize, Block)| {
                 self.get_hash(&chain[i]) == x.previous_block_hash.unwrap()

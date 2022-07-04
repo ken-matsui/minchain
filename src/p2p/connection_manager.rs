@@ -15,10 +15,10 @@ use transaction::pool::{Transaction, TransactionPool};
 const PING_INTERVAL: Duration = Duration::from_secs(10);
 
 fn u8_to_str(content: &[u8]) -> String {
-    from_utf8(&content.to_vec()).unwrap().to_string()
+    from_utf8(content).unwrap().to_string()
 }
 
-#[allow(clippy::drop_bounds)]
+#[allow(drop_bounds)]
 pub trait Manager: Drop + Clone {
     /// Start standby.
     fn start(&mut self, my_addr: SocketAddr)
