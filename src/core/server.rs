@@ -2,11 +2,9 @@ use std::net::{SocketAddr, ToSocketAddrs};
 use std::thread;
 use std::time::Duration;
 
-use blockchain::block::Block;
-use blockchain::chain::Blockchain;
-use core::state::{get_my_addr, State};
-use p2p::connection_manager::{ConnectionManager, Manager};
-use transaction::pool::ToVecString;
+use crate::core::state::{get_my_addr, State};
+use crate::p2p::connection_manager::{ConnectionManager, Manager};
+use crate::{Block, Blockchain, ToVecString};
 
 const CHECK_INTERVAL: Duration = Duration::from_secs(10);
 

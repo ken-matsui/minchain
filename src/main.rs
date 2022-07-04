@@ -1,7 +1,3 @@
-extern crate anyhow;
-extern crate ctrlc;
-extern crate serde;
-
 mod blockchain;
 mod core;
 mod crypt;
@@ -14,10 +10,10 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
+use crate::core::client::Client;
+use crate::core::server::{Overload, Server};
 use blockchain::block::Block;
 use blockchain::chain::Blockchain;
-use core::client::Client;
-use core::server::{Overload, Server};
 use p2p::message::MsgType;
 use transaction::pool::{ToVecString, Transaction, TransactionPool};
 

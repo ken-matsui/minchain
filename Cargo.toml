@@ -1,6 +1,7 @@
 [package]
 name = "mincoin"
 version = "0.1.0"
+edition = "2021"
 authors = ["Ken Matsui <26405363+ken-matsui@users.noreply.github.com>"]
 
 [dependencies]

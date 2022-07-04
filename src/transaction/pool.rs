@@ -1,6 +1,4 @@
-extern crate serde;
-
-use self::serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct Transaction {
@@ -19,7 +17,7 @@ impl Transaction {
     }
 }
 
-impl std::string::ToString for Transaction {
+impl ToString for Transaction {
     fn to_string(&self) -> String {
         serde_json::to_string(self).unwrap()
     }

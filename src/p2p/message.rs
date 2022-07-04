@@ -1,15 +1,11 @@
-extern crate semver;
-extern crate serde;
-
 use anyhow::anyhow;
+use semver::Version;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::string::String;
 
-use transaction::pool::Transaction;
-
-use self::semver::Version;
-use self::serde::{Deserialize, Serialize};
+use crate::Transaction;
 
 const PROTOCOL_NAME: &str = "mincoin_protocol";
 const PROTOCOL_VERSION: &str = "0.1.0";

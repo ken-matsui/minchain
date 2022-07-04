@@ -1,4 +1,4 @@
-use p2p::message::Message;
+use crate::p2p::message::Message;
 
 #[derive(Clone)]
 pub struct ProtocolHandler;
