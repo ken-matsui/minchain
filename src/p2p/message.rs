@@ -1,6 +1,7 @@
 extern crate semver;
 extern crate serde;
 
+use anyhow::anyhow;
 use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::string::String;
@@ -67,13 +68,13 @@ pub fn build(
     serde_json::to_string(&msg).unwrap()
 }
 
-pub fn parse(msg_str: &str) -> Result<Message, &'static str> {
+pub fn parse(msg_str: &str) -> anyhow::Result<Message> {
     let msg: Message = serde_json::from_str(msg_str).unwrap();
 
     if msg.protocol != PROTOCOL_NAME {
-        Err("Protocol name is not matched")
-    } else if Version::parse(&msg.version) > Version::parse(PROTOCOL_VERSION) {
-        Err("Protocol version is not matched")
+        Err(anyhow!("Protocol name is not matched"))
+    } else if Version::parse(&msg.version)? > Version::parse(PROTOCOL_VERSION)? {
+        Err(anyhow!("Protocol version is not matched"))
     } else {
         Ok(msg)
     }
