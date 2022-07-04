@@ -4,7 +4,7 @@ mod crypt;
 mod p2p;
 mod transaction;
 
-use std::env;
+use clap::{Parser, Subcommand};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -20,10 +20,32 @@ use transaction::pool::{ToVecString, Transaction, TransactionPool};
 const CHECK_INTERVAL: Duration = Duration::from_secs(10);
 static mut FLAG_STOP_BLOCK_BUILD: bool = false;
 
-fn help() {
-    eprintln!("cargo run (server|client)");
-    eprintln!("cargo run server (genesis)");
-    eprintln!("cargo run client (1)");
+#[derive(Parser)]
+#[clap(version, about, long_about = None)]
+#[clap(propagate_version = true)]
+struct Cli {
+    #[clap(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Launch a server
+    Server {
+        /// Launch a genesis server
+        #[clap(long)]
+        genesis: bool,
+    },
+
+    /// Launch a client
+    Client {
+        /// Launch the first client
+        #[clap(long)]
+        first: bool,
+    },
+
+    /// Start a blockchain
+    Blockchain,
 }
 
 fn wait_for_ctlc() {
@@ -67,23 +89,22 @@ fn generate_block_with_tp(
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
+    let cli = Cli::parse();
 
-    if args.len() <= 1 {
-        help();
-    } else if &args[1] == "server" {
-        if args.len() > 2 && &args[2] == "genesis" {
+    match &cli.command {
+        Commands::Server { genesis } if *genesis => {
             let mut my_p2p_server = Server::new(50082);
             my_p2p_server.start();
             wait_for_ctlc();
-        } else {
+        }
+        Commands::Server { .. } => {
             let mut my_p2p_server = Server::new((50090, "localhost:50082"));
             my_p2p_server.start();
             my_p2p_server.join_network();
             wait_for_ctlc();
-        };
-    } else if &args[1] == "client" {
-        if args.len() > 2 && &args[2] == "1" {
+        }
+
+        Commands::Client { first } if *first => {
             let mut my_p2p_client = Client::new(50095, "localhost:50082");
             my_p2p_client.start();
 
@@ -101,7 +122,8 @@ fn main() {
             my_p2p_client.send_message_to_my_core_node(MsgType::NewTransaction, transaction3);
 
             wait_for_ctlc();
-        } else {
+        }
+        Commands::Client { .. } => {
             let mut my_p2p_client = Client::new(50088, "localhost:50082");
             my_p2p_client.start();
 
@@ -119,41 +141,41 @@ fn main() {
             my_p2p_client.send_message_to_my_core_node(MsgType::NewTransaction, transaction3);
 
             wait_for_ctlc();
-        };
-    } else if &args[1] == "blockchain" {
-        let my_genesis_block = Block::new_genesis();
-        let bc = Blockchain::new(my_genesis_block.clone());
-        let tp = Arc::new(Mutex::new(TransactionPool::new()));
-
-        let prev_block_hash = bc.get_hash(&my_genesis_block);
-        println!("genesis_block_hash : {}", prev_block_hash);
-
-        let transaction = Transaction::new("test1", "test2", 3);
-        tp.lock().unwrap().set_new_transaction(transaction);
-
-        let transaction2 = Transaction::new("test1", "test3", 2);
-        tp.lock().unwrap().set_new_transaction(transaction2);
-
-        println!("Thread for generate_block_with_tp started!");
-        {
-            let tp = tp.clone();
-            thread::spawn(move || {
-                thread::sleep(CHECK_INTERVAL);
-                generate_block_with_tp(tp, bc, prev_block_hash);
-            });
         }
-        thread::sleep(Duration::from_secs(20));
 
-        let transaction3 = Transaction::new("test5", "test6", 10);
-        tp.lock().unwrap().set_new_transaction(transaction3);
+        Commands::Blockchain => {
+            let my_genesis_block = Block::new_genesis();
+            let bc = Blockchain::new(my_genesis_block.clone());
+            let tp = Arc::new(Mutex::new(TransactionPool::new()));
 
-        thread::sleep(Duration::from_secs(30));
+            let prev_block_hash = bc.get_hash(&my_genesis_block);
+            println!("genesis_block_hash : {}", prev_block_hash);
 
-        unsafe {
-            FLAG_STOP_BLOCK_BUILD = true;
+            let transaction = Transaction::new("test1", "test2", 3);
+            tp.lock().unwrap().set_new_transaction(transaction);
+
+            let transaction2 = Transaction::new("test1", "test3", 2);
+            tp.lock().unwrap().set_new_transaction(transaction2);
+
+            println!("Thread for generate_block_with_tp started!");
+            {
+                let tp = tp.clone();
+                thread::spawn(move || {
+                    thread::sleep(CHECK_INTERVAL);
+                    generate_block_with_tp(tp, bc, prev_block_hash);
+                });
+            }
+            thread::sleep(Duration::from_secs(20));
+
+            let transaction3 = Transaction::new("test5", "test6", 10);
+            tp.lock().unwrap().set_new_transaction(transaction3);
+
+            thread::sleep(Duration::from_secs(30));
+
+            unsafe {
+                FLAG_STOP_BLOCK_BUILD = true;
+            }
+            println!("Stop the Thread for generate_block_with_tp");
         }
-        println!("Stop the Thread for generate_block_with_tp");
-    } else {
-        help();
     };
 }
