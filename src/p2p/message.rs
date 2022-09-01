@@ -10,7 +10,7 @@ use crate::Transaction;
 const PROTOCOL_NAME: &str = "mincoin_protocol";
 const PROTOCOL_VERSION: &str = "0.1.0";
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug)]
 pub enum MsgType {
     Add,
     Remove,
