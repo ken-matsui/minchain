@@ -6,7 +6,7 @@ authors = ["Ken Matsui <26405363+ken-matsui@users.noreply.github.com>"]
 
 [dependencies]
 anyhow = "1.0.66"
-chrono = "0.4.22"
+chrono = "0.4.23"
 clap = { version = "4.0", features = ["derive"] }
 crypto-hash = "0.3.4"
 ctrlc = { version = "3.2", features = ["termination"] }
