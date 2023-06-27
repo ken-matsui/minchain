@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["Ken Matsui <26405363+ken-matsui@users.noreply.github.com>"]
 
 [dependencies]
-anyhow = "1.0.66"
+anyhow = "1.0.71"
 chrono = "0.4.23"
 clap = { version = "4.0", features = ["derive"] }
 crypto-hash = "0.3.4"
